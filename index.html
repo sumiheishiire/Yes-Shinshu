@@ -1,0 +1,2081 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>家ッス！信州 WBSダッシュボード</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Hiragino Kaku Gothic ProN','Meiryo',sans-serif;font-size:14px;background:#f0f2f5;color:#333}
+/* ===== STICKY HEADER ===== */
+#header{position:sticky;top:0;z-index:100;background:linear-gradient(135deg,#1a237e,#283593);color:#fff;padding:10px 16px;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+#header h1{font-size:18px;margin-bottom:8px;letter-spacing:1px}
+.kpi-row{display:flex;gap:10px;flex-wrap:wrap}
+.kpi-card{background:rgba(255,255,255,.15);border-radius:8px;padding:8px 14px;min-width:140px;flex:1}
+.kpi-label{font-size:11px;opacity:.8;margin-bottom:3px}
+.kpi-value{font-size:20px;font-weight:bold}
+.kpi-sub{font-size:11px;opacity:.75}
+.kpi-bar-bg{background:rgba(255,255,255,.25);border-radius:4px;height:6px;margin-top:5px}
+.kpi-bar{height:6px;border-radius:4px;transition:width .5s}
+.kpi-warn{font-size:11px;color:#ffcc80;margin-top:2px}
+.header-meta{display:flex;align-items:center;gap:12px;margin-top:6px;font-size:12px;opacity:.8}
+/* ===== ALERT ZONE ===== */
+#alerts{padding:12px 16px}
+.alert-box{border-radius:8px;padding:10px 14px;margin-bottom:8px}
+.alert-overdue{background:#ffebee;border-left:4px solid #c62828}
+.alert-today{background:#fff3e0;border-left:4px solid #e65100}
+.alert-deadline{background:#fce4ec;border-left:4px solid #880e4f}
+.alert-title{font-weight:bold;font-size:13px;margin-bottom:6px}
+.alert-item{font-size:12px;padding:2px 0;display:flex;gap:8px;align-items:center}
+.alert-item span{opacity:.7}
+/* ===== FILTER BAR ===== */
+#filterbar{background:#fff;padding:10px 16px;border-bottom:1px solid #ddd;display:flex;gap:8px;flex-wrap:wrap;align-items:center;position:sticky;top:140px;z-index:99;box-shadow:0 1px 4px rgba(0,0,0,.1)}
+#filterbar label{font-size:12px;color:#666;margin-right:2px}
+.filter-btn{border:1px solid #bbb;background:#f5f5f5;border-radius:16px;padding:3px 10px;font-size:12px;cursor:pointer;transition:all .2s}
+.filter-btn.active{background:#1a237e;color:#fff;border-color:#1a237e}
+.filter-sep{color:#ccc;font-size:16px}
+/* ===== MAIN CONTENT ===== */
+#main{padding:12px 16px;max-width:1200px}
+/* ===== EVENT CARD ===== */
+.event-card{background:#fff;border-radius:10px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.1);overflow:hidden}
+.event-header{padding:12px 16px;cursor:pointer;display:flex;align-items:center;gap:10px;user-select:none}
+.event-header:hover{background:#f5f5f5}
+.event-num{font-size:20px;font-weight:900;min-width:28px;color:#fff;background:#1a237e;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:14px}
+.event-title-wrap{flex:1}
+.event-title{font-size:15px;font-weight:bold}
+.event-date{font-size:12px;color:#666}
+.event-budget{font-size:12px;color:#388e3c;font-weight:bold}
+.event-progress-bar{width:120px}
+.event-progress-text{font-size:11px;color:#666;text-align:right;margin-bottom:2px}
+.prog-bg{background:#e0e0e0;border-radius:4px;height:8px}
+.prog-fill{height:8px;border-radius:4px;background:#1a237e;transition:width .5s}
+.event-toggle{font-size:18px;color:#999;transition:transform .3s}
+.event-toggle.open{transform:rotate(180deg)}
+.status-badge-event{border-radius:12px;padding:2px 10px;font-size:11px;font-weight:bold}
+.ev-done{background:#e8f5e9;color:#2e7d32}
+.ev-urgent{background:#ffebee;color:#c62828}
+.ev-active{background:#e3f2fd;color:#1565c0}
+.ev-plan{background:#f3e5f5;color:#6a1b9a}
+.ev-future{background:#f5f5f5;color:#757575}
+/* ===== DEADLINE BANNER ===== */
+.deadline-banner{background:#880e4f;color:#fff;padding:6px 16px;font-size:12px;display:flex;align-items:center;gap:8px}
+/* ===== TASK TABLE ===== */
+.event-body{display:none;padding:0 16px 16px}
+.event-body.open{display:block}
+.task-table{width:100%;border-collapse:collapse;margin-top:8px}
+.task-table th{background:#f5f5f5;padding:6px 8px;text-align:left;font-size:12px;color:#666;border-bottom:2px solid #e0e0e0;white-space:nowrap}
+.task-table td{padding:6px 8px;border-bottom:1px solid #f0f0f0;font-size:13px;vertical-align:middle}
+.task-row{transition:background .2s}
+.task-row:hover{background:#fafafa}
+.task-row.done td{opacity:.5;text-decoration:line-through}
+.task-row.done td:first-child{text-decoration:none}
+.task-row.overdue{background:#fff8f8}
+.task-row.today{background:#fffde7}
+.task-row.soon{background:#fff8e1}
+.task-row.hidden{display:none!important}
+/* Checkbox */
+.task-check{width:18px;height:18px;cursor:pointer;accent-color:#1a237e}
+/* Priority */
+.pri{border-radius:10px;padding:1px 8px;font-size:11px;font-weight:bold;white-space:nowrap}
+.pri-critical{background:#b71c1c;color:#fff}
+.pri-high{background:#ff6f00;color:#fff}
+.pri-mid{background:#0277bd;color:#fff}
+.pri-low{background:#546e7a;color:#fff}
+/* Deadline */
+.dl{white-space:nowrap;font-size:12px}
+.dl-overdue{color:#c62828;font-weight:bold}
+.dl-today{color:#e65100;font-weight:bold}
+.dl-soon{color:#f57f17}
+.dl-ok{color:#333}
+/* Assignee badge */
+.who{border-radius:10px;padding:2px 8px;font-size:11px;white-space:nowrap;font-weight:bold}
+.who-tsuchiya{background:#1a237e;color:#fff}
+.who-yamazaki{background:#283593;color:#fff}
+.who-tomioka{background:#1565c0;color:#fff}
+.who-tanaka{background:#2e7d32;color:#fff}
+.who-shinozuka{background:#795548;color:#fff}
+.who-yajima{background:#e65100;color:#fff}
+.who-abe{background:#ad1457;color:#fff}
+.who-nishino{background:#6a1b9a;color:#fff}
+.who-all{background:#546e7a;color:#fff}
+.who-sales{background:#9e9e9e;color:#fff}
+.who-center{background:#00838f;color:#fff}
+.status-chip{border-radius:10px;padding:1px 8px;font-size:11px;white-space:nowrap}
+.s-done{background:#e8f5e9;color:#2e7d32}
+.s-prog{background:#e3f2fd;color:#1565c0}
+.s-todo{background:#f5f5f5;color:#616161}
+.s-check{background:#fff3e0;color:#e65100}
+/* Notes */
+.note{font-size:11px;color:#888;font-style:italic}
+/* Section label */
+.section-label{font-size:12px;color:#888;margin:12px 0 4px;padding-top:8px;border-top:1px dashed #eee;font-weight:bold}
+/* Summary row */
+.summary-row{background:#f9f9f9;font-weight:bold;font-size:12px}
+/* ===== EDIT MODE ===== */
+.fab-edit{position:fixed;bottom:24px;right:24px;width:52px;height:52px;border-radius:50%;background:#1a237e;color:#fff;border:none;font-size:22px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.4);z-index:250;transition:background .2s}
+.fab-edit.active{background:#c62828}
+.edit-ctrl{display:none;gap:4px;align-items:center}
+body.edit-mode .edit-ctrl{display:flex}
+.edit-ctrl-th{display:none;width:60px}
+body.edit-mode .edit-ctrl-th{display:table-cell}
+.btn-edit-task,.btn-del-task{border:none;background:none;cursor:pointer;font-size:13px;padding:2px 5px;border-radius:4px;opacity:.6}
+.btn-edit-task:hover{background:#e3f2fd;opacity:1}
+.btn-del-task:hover{background:#ffebee;opacity:1;color:#c62828}
+.btn-add-task{display:none;margin:8px 16px 12px;padding:6px 14px;background:#e8f5e9;border:1px dashed #2e7d32;color:#2e7d32;border-radius:6px;font-size:12px;cursor:pointer;width:calc(100% - 32px);text-align:left}
+body.edit-mode .btn-add-task{display:block}
+.btn-edit-event{display:none;border:none;background:#fff3e0;color:#e65100;padding:2px 8px;border-radius:4px;font-size:11px;cursor:pointer;margin-left:8px;flex-shrink:0}
+body.edit-mode .btn-edit-event{display:inline-block}
+.btn-add-event{display:none;width:100%;margin-bottom:12px;padding:10px;background:#e3f2fd;border:2px dashed #1565c0;color:#1565c0;border-radius:8px;font-size:13px;cursor:pointer}
+body.edit-mode .btn-add-event{display:block}
+/* ===== MODAL ===== */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:400;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal-box{background:#fff;border-radius:12px;padding:24px;width:92%;max-width:440px;box-shadow:0 8px 32px rgba(0,0,0,.25)}
+.modal-title{font-size:16px;font-weight:bold;color:#1a237e;margin-bottom:16px;border-bottom:2px solid #e8eaf6;padding-bottom:8px}
+.form-grid{display:grid;gap:10px}
+.form-row{display:grid;grid-template-columns:72px 1fr;align-items:start;gap:8px}
+.form-row label{color:#666;font-size:12px;padding-top:6px}
+.form-row input,.form-row select{border:1px solid #ddd;border-radius:6px;padding:6px 8px;font-size:13px;width:100%;font-family:inherit}
+.form-row input:focus,.form-row select:focus{outline:none;border-color:#1a237e}
+.modal-btns{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;padding-top:12px;border-top:1px solid #eee}
+.modal-btns button{padding:7px 18px;border-radius:6px;border:none;cursor:pointer;font-size:13px;font-family:inherit}
+.btn-modal-cancel{background:#f5f5f5;color:#333}
+.btn-modal-save{background:#1a237e;color:#fff}
+.btn-modal-danger{background:#c62828;color:#fff}
+/* Print */
+@media print{
+  #filterbar,#alerts{display:none}
+  .event-body{display:block!important}
+  .event-toggle{display:none}
+  body{background:#fff}
+  #header{position:relative}
+}
+/* ===== モバイル用ボタン ===== */
+.mobile-who-btn{padding:8px 14px;border:2px solid #e0e0e0;border-radius:20px;background:#fff;font-size:13px;cursor:pointer;font-family:inherit;transition:all .15s}
+.mobile-who-btn.active{background:#1a237e;color:#fff;border-color:#1a237e}
+/* セレクター：デフォルト非表示（PC） */
+#mobile-mytasks{display:none}
+#mobile-kpi{display:none}
+/* モバイルフィルターで非表示にするイベントカード */
+.mobile-hidden{display:none!important}
+/* ===== Responsive ===== */
+@media(max-width:700px){
+  /* ヘッダー圧縮 */
+  #header{padding:6px 12px}
+  #header h1{font-size:14px;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .kpi-row{display:none!important}
+  #mobile-kpi{display:flex!important}
+  .hide-mobile{display:none}
+  .header-meta{font-size:11px;margin-top:2px;gap:8px}
+  /* アラートゾーン */
+  #alerts{padding:8px 10px}
+  .alert-box{padding:8px 10px;font-size:12px}
+  /* フィルターバー非表示（モバイルはマイタスクセレクターで代替） */
+  #filterbar{display:none!important}
+  /* アナリティクス非表示 */
+  #analytics-section{display:none!important}
+  /* マイタスクセレクター表示 */
+  #mobile-mytasks{display:block!important}
+  /* モバイルではイベントをデフォルト折りたたみ・タップで展開 */
+  .event-body{display:none}
+  .event-body.open{display:block}
+  /* トグル矢印はモバイルでも表示（タップで展開するため） */
+  .event-toggle{display:flex!important;color:#fff;opacity:.8}
+  /* FABボタン位置調整 */
+  .fab-edit{bottom:16px;right:16px;width:46px;height:46px;font-size:18px}
+  /* メインコンテンツ */
+  #main{padding:0 8px}
+  /* イベントカード */
+  .event-card{margin-bottom:8px}
+  .event-header{padding:10px 12px;background:linear-gradient(90deg,#1a237e,#283593);color:#fff;border-radius:8px}
+  .event-title{font-size:14px;color:#fff}
+  .event-date{font-size:11px;color:rgba(255,255,255,.75)}
+  .event-num{width:26px;height:26px;font-size:13px;min-width:26px}
+  /* 完了済みイベントをモバイルでは非表示 */
+  .ev-card-done,.event-card:has(.ev-done){display:none!important}
+  /* 進捗バー：ヘッダー内に表示（白文字） */
+  .event-progress-bar{width:70px;flex-shrink:0;display:block}
+  .event-progress-text{font-size:12px;font-weight:bold;color:#fff;text-align:right;margin-bottom:3px}
+  .prog-bg{background:rgba(255,255,255,.3)}
+  .prog-fill{background:#fff}
+  /* ステータスバッジを小さく */
+  .status-badge-event{font-size:10px;padding:2px 6px;white-space:nowrap}
+  /* タスクテーブル - 読みやすく */
+  .task-table{font-size:14px}
+  .task-table th{font-size:12px;padding:6px 4px}
+  .task-table td{padding:10px 4px;vertical-align:middle}
+  .task-check{width:22px;height:22px;cursor:pointer}
+  /* 担当・メモ列を非表示 */
+  .task-table th:nth-child(3),.task-table td:nth-child(3){display:none}
+  .task-table th:nth-child(5),.task-table td:nth-child(5){display:none}
+  .task-table th:nth-child(6),.task-table td:nth-child(6){display:none}
+  /* タスク名を太く */
+  .task-table td:nth-child(2){font-weight:500;line-height:1.4}
+  /* KPI入力エリア非表示 */
+  #kpi-edit-section{display:none}
+}
+</style>
+</head>
+<body>
+
+<!-- ===== STICKY HEADER ===== -->
+<div id="header">
+  <h1>🏠 家ッス！信州｜イベントWBSダッシュボード</h1>
+  <div class="kpi-row">
+    <div class="kpi-card">
+      <div class="kpi-label">📍 来場者数 <span style="font-size:10px;opacity:.7">※スプレッドシート連動</span></div>
+      <div class="kpi-value" id="kpi-vis-val">取得中… <span style="font-size:14px;opacity:.7">/ 600組</span></div>
+      <div class="kpi-bar-bg"><div class="kpi-bar" id="kpi-vis-bar" style="width:0%;background:#4fc3f7"></div></div>
+      <div class="kpi-warn" id="kpi-vis-warn">スプレッドシートから読み込み中</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">🏗 新築受注</div>
+      <div class="kpi-value">12棟 <span style="font-size:14px;opacity:.7">/ 60棟</span></div>
+      <div class="kpi-bar-bg"><div class="kpi-bar" style="width:20%;background:#ef9a9a"></div></div>
+      <div class="kpi-warn">🚨 達成率 20%｜目標の1/5</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">🏡 MH販売</div>
+      <div class="kpi-value">1棟 <span style="font-size:14px;opacity:.7">/ 6棟</span></div>
+      <div class="kpi-bar-bg"><div class="kpi-bar" style="width:17%;background:#ffb74d"></div></div>
+      <div class="kpi-warn">🚨 残り5棟｜早期販売が最優先</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">📅 残り期間</div>
+      <div class="kpi-value" id="days-left">計算中</div>
+      <div class="kpi-bar-bg"><div class="kpi-bar" id="days-bar" style="background:#a5d6a7"></div></div>
+      <div class="kpi-sub">〜 2027/1/16まで</div>
+    </div>
+  </div>
+  <!-- モバイル用コンパクトKPI（スマホのみ表示） -->
+  <div id="mobile-kpi" style="display:none;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:4px">
+    <span style="font-size:13px;font-weight:bold">来場 <span id="m-vis-val">—</span>/600組</span>
+    <span style="opacity:.6;font-size:12px">|</span>
+    <span style="font-size:13px">受注 <strong>12</strong>/60棟</span>
+    <span style="opacity:.6;font-size:12px">|</span>
+    <span style="font-size:13px">MH <strong>1</strong>/6棟</span>
+  </div>
+  <div class="header-meta">
+    <span id="today-label">本日：</span>
+    <span class="hide-mobile">オープン：2026/1/17｜クローズ：2027/1/16</span>
+    <span id="sync-status" style="color:#80cbc4;font-weight:bold">同期中…</span>
+  </div>
+</div>
+
+<!-- ===== ALERT ZONE ===== -->
+<div id="alerts">
+  <div id="alert-overdue-box" class="alert-box alert-overdue" style="display:none">
+    <div class="alert-title">🚨 期限超過タスク（至急対応が必要）</div>
+    <div id="alert-overdue-list"></div>
+  </div>
+  <div id="alert-today-box" class="alert-box alert-today" style="display:none">
+    <div class="alert-title">⏰ 本日・明日期限のタスク</div>
+    <div id="alert-today-list"></div>
+  </div>
+  <div class="alert-box alert-deadline">
+    <div class="alert-title">💀 企画破綻デッドライン</div>
+    <div class="alert-item">🗓 <strong>5/16</strong> ③暮らし体感フェア｜チラシ印刷発注が完了しなければ折込スケジュールが崩壊→イベント集客不可</div>
+    <div class="alert-item">🗓 <strong>5/22</strong> ④家族の似顔絵展｜保育園正式依頼＆画用紙配布が完了しなければ6/15展示に間に合わない</div>
+    <div class="alert-item">🗓 <strong>6/15</strong> ⑤森林伐採ツアー｜日程・長野県森林課確定しなければ7月開催不可</div>
+    <div class="alert-item">🗓 <strong>6/20</strong> ⑦ナイトツアー｜企画・予約システム未確定なら8月開催は現実的に不可</div>
+  </div>
+</div>
+
+<!-- ===== FILTER BAR ===== -->
+<div id="filterbar">
+  <label>イベント：</label>
+  <button class="filter-btn active" onclick="setFilter('event','all',this)">全て</button>
+  <button class="filter-btn" onclick="setFilter('event','ev02',this)">②クリーン</button>
+  <button class="filter-btn" onclick="setFilter('event','ev03',this)">③販売促進</button>
+  <button class="filter-btn" onclick="setFilter('event','ev04',this)">④似顔絵展</button>
+  <button class="filter-btn" onclick="setFilter('event','ev05',this)">⑤森林ツアー</button>
+  <button class="filter-btn" onclick="setFilter('event','ev06',this)">⑥ダイハツ</button>
+  <button class="filter-btn" onclick="setFilter('event','ev07',this)">⑦ナイト</button>
+  <button class="filter-btn" onclick="setFilter('event','ev09',this)">⑨マツダ</button>
+  <button class="filter-btn" onclick="setFilter('event','ev-later',this)">⑩〜⑭後半</button>
+  <span class="filter-sep">|</span>
+  <label>担当：</label>
+  <button class="filter-btn" onclick="setFilter('who','all',this)">全員</button>
+  <button class="filter-btn" onclick="setFilter('who','土屋建設',this)">土屋建設</button>
+  <button class="filter-btn" onclick="setFilter('who','田中建築',this)">田中建築</button>
+  <button class="filter-btn" onclick="setFilter('who','阿部',this)">阿部</button>
+  <button class="filter-btn" onclick="setFilter('who','西埜',this)">西埜</button>
+  <button class="filter-btn" onclick="setFilter('who','冨岡建設',this)">冨岡建設</button>
+  <button class="filter-btn" onclick="setFilter('who','矢嶋建築',this)">矢嶋建築</button>
+  <button class="filter-btn" onclick="setFilter('who','村山建設',this)">村山建設</button>
+  <button class="filter-btn" onclick="setFilter('who','須坂土建',this)">須坂土建工業</button>
+  <span class="filter-sep">|</span>
+  <label>状態：</label>
+  <button class="filter-btn" onclick="setFilter('status','all',this)">全て</button>
+  <button class="filter-btn" onclick="setFilter('status','undone',this)">未完了のみ</button>
+  <button class="filter-btn" onclick="setFilter('status','overdue',this)">期限超過</button>
+</div>
+
+<!-- ===== ANALYTICS SECTION ===== -->
+<div id="analytics-section" style="max-width:1200px;padding:0 16px;margin:0 auto">
+<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.1);margin-bottom:12px;padding:16px">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+    <span style="font-size:18px">📊</span>
+    <strong style="font-size:15px">来場者分析ダッシュボード</strong>
+    <span style="font-size:11px;color:#888;margin-left:4px">Googleスプレッドシート連動｜2026/1/17〜5/14（4ヶ月）</span>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px">
+
+    <!-- 月別来場数 -->
+    <div>
+      <div style="font-size:12px;color:#666;font-weight:bold;margin-bottom:8px">📅 月別来場数（目標 50組/月）</div>
+      <div id="monthly-chart" style="display:flex;align-items:flex-end;gap:6px;height:100px">
+        <div style="color:#999;font-size:11px;padding:8px">読み込み中…</div>
+      </div>
+      <div id="monthly-chart-msg" style="margin-top:22px;padding:6px 8px;background:#fff3e0;border-radius:6px;font-size:11px;color:#e65100"></div>
+    </div>
+
+    <!-- 来場経路 -->
+    <div>
+      <div style="font-size:12px;color:#666;font-weight:bold;margin-bottom:8px" id="kpi-vis-label">🔍 来場きっかけ</div>
+      <div style="display:flex;flex-direction:column;gap:5px">
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:11px"><span>工務店紹介・予約</span><span style="font-weight:bold">95組 (25%)</span></div>
+          <div style="background:#e0e0e0;border-radius:3px;height:7px;margin-top:2px"><div style="background:#1a237e;width:25%;height:7px;border-radius:3px"></div></div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:11px"><span>Instagram</span><span style="font-weight:bold">85組 (22%)</span></div>
+          <div style="background:#e0e0e0;border-radius:3px;height:7px;margin-top:2px"><div style="background:#e91e63;width:22%;height:7px;border-radius:3px"></div></div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:11px"><span>新聞・折込・チラシ</span><span style="font-weight:bold">70組 (18%)</span></div>
+          <div style="background:#e0e0e0;border-radius:3px;height:7px;margin-top:2px"><div style="background:#ff6f00;width:18%;height:7px;border-radius:3px"></div></div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:11px"><span>通りがかり</span><span style="font-weight:bold">40組 (11%)</span></div>
+          <div style="background:#e0e0e0;border-radius:3px;height:7px;margin-top:2px"><div style="background:#00838f;width:11%;height:7px;border-radius:3px"></div></div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:11px"><span>知人紹介</span><span style="font-weight:bold">35組 (9%)</span></div>
+          <div style="background:#e0e0e0;border-radius:3px;height:7px;margin-top:2px"><div style="background:#2e7d32;width:9%;height:7px;border-radius:3px"></div></div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:11px"><span>その他（HP・その他）</span><span style="font-weight:bold">55組 (15%)</span></div>
+          <div style="background:#e0e0e0;border-radius:3px;height:7px;margin-top:2px"><div style="background:#9e9e9e;width:15%;height:7px;border-radius:3px"></div></div>
+        </div>
+      </div>
+      <div style="margin-top:8px;padding:6px 8px;background:#e8f5e9;border-radius:6px;font-size:11px;color:#2e7d32">
+        💡 Instagram経由が22%。SNS広告強化が最も費用対効果が高い。
+      </div>
+    </div>
+
+    <!-- 年代・検討内容 -->
+    <div>
+      <div style="font-size:12px;color:#666;font-weight:bold;margin-bottom:8px">👥 来場者年代分布</div>
+      <div style="display:flex;flex-direction:column;gap:5px">
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:11px"><span>20代</span><span style="font-weight:bold">70組 (18%)</span></div>
+          <div style="background:#e0e0e0;border-radius:3px;height:7px;margin-top:2px"><div style="background:#7b1fa2;width:18%;height:7px;border-radius:3px"></div></div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:11px"><span>30代 ★主力ターゲット</span><span style="font-weight:bold">140組 (37%)</span></div>
+          <div style="background:#e0e0e0;border-radius:3px;height:7px;margin-top:2px"><div style="background:#1565c0;width:37%;height:7px;border-radius:3px"></div></div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:11px"><span>40代</span><span style="font-weight:bold">55組 (14%)</span></div>
+          <div style="background:#e0e0e0;border-radius:3px;height:7px;margin-top:2px"><div style="background:#0277bd;width:14%;height:7px;border-radius:3px"></div></div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:11px"><span>50代</span><span style="font-weight:bold">40組 (11%)</span></div>
+          <div style="background:#e0e0e0;border-radius:3px;height:7px;margin-top:2px"><div style="background:#00838f;width:11%;height:7px;border-radius:3px"></div></div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:11px"><span>60代以上</span><span style="font-weight:bold">50組 (13%)</span></div>
+          <div style="background:#e0e0e0;border-radius:3px;height:7px;margin-top:2px"><div style="background:#546e7a;width:13%;height:7px;border-radius:3px"></div></div>
+        </div>
+      </div>
+      <div style="font-size:12px;color:#666;font-weight:bold;margin:10px 0 6px">🏠 検討内容</div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap">
+        <span style="background:#e3f2fd;color:#1565c0;border-radius:10px;padding:2px 8px;font-size:11px">所有地新築 140組</span>
+        <span style="background:#e8f5e9;color:#2e7d32;border-radius:10px;padding:2px 8px;font-size:11px">土地探し新築 95組</span>
+        <span style="background:#fff3e0;color:#e65100;border-radius:10px;padding:2px 8px;font-size:11px">リフォーム 35組</span>
+        <span style="background:#fce4ec;color:#c62828;border-radius:10px;padding:2px 8px;font-size:11px">MH購入 25組</span>
+        <span style="background:#f3e5f5;color:#6a1b9a;border-radius:10px;padding:2px 8px;font-size:11px">建替 20組</span>
+        <span style="background:#f5f5f5;color:#757575;border-radius:10px;padding:2px 8px;font-size:11px">見学のみ 50組</span>
+      </div>
+    </div>
+
+
+  </div><!-- /grid -->
+</div><!-- /analytics card -->
+</div>
+
+<!-- ===== MAIN ===== -->
+<div id="main">
+<button class="btn-add-event" onclick="openEventModal(null)">＋ 新しいイベントを追加</button>
+
+<!-- ===== モバイル用 マイタスクセレクター ===== -->
+<div id="mobile-mytasks" style="background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.12);margin-bottom:12px;overflow:hidden">
+  <div style="background:#1a237e;color:#fff;padding:10px 14px;font-size:14px;font-weight:bold">
+    👤 担当者を選んでください
+  </div>
+  <div style="padding:12px 14px">
+    <div id="mobile-who-btns" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+      <button class="mobile-who-btn" data-key="all">全員</button>
+      <button class="mobile-who-btn" data-key="土屋建設">土屋建設</button>
+      <button class="mobile-who-btn" data-key="田中建築">田中建築</button>
+      <button class="mobile-who-btn" data-key="冨岡建設">冨岡建設</button>
+      <button class="mobile-who-btn" data-key="村山建設">村山建設</button>
+      <button class="mobile-who-btn" data-key="矢嶋建築">矢嶋建築</button>
+      <button class="mobile-who-btn" data-key="須坂土建工業">須坂土建工業</button>
+      <button class="mobile-who-btn" data-key="阿部">阿部</button>
+      <button class="mobile-who-btn" data-key="西埜">西埜</button>
+    </div>
+    <div id="mobile-task-summary" style="font-size:13px;color:#555;padding:8px;background:#f5f5f5;border-radius:6px;display:none;margin-bottom:8px">
+      未完了：<strong id="m-undone-count" style="color:#c62828;font-size:16px">—</strong> 件　完了：<strong id="m-done-count" style="color:#2e7d32;font-size:16px">—</strong> 件
+    </div>
+    <div id="mobile-task-list" style="display:none"></div>
+  </div>
+</div>
+
+<!-- ①マネーセミナー -->
+<div class="event-card ev-card-done" data-event="ev01">
+  <div class="event-header" onclick="toggleCard(this)">
+    <div class="event-num" style="background:#2e7d32">①</div>
+    <div class="event-title-wrap">
+      <div class="event-title">マネーセミナー</div>
+      <div class="event-date">2026/4/19（日）　田中建築</div>
+    </div>
+    <span class="status-badge-event ev-done">✅ 完了</span>
+    <div class="event-progress-bar">
+      <div class="event-progress-text">100%</div>
+      <div class="prog-bg"><div class="prog-fill" style="width:100%;background:#2e7d32"></div></div>
+    </div>
+    <div class="event-toggle">▼</div>
+  </div>
+  <div class="event-body">
+    <p style="padding:8px;color:#2e7d32;font-weight:bold">✅ このイベントは完了しています。</p>
+  </div>
+</div>
+
+<!-- ②クリーン作戦 -->
+<div class="event-card" data-event="ev02">
+  <div class="event-header" onclick="toggleCard(this)">
+    <div class="event-num" style="background:#558b2f">②</div>
+    <div class="event-title-wrap">
+      <div class="event-title">クリーン作戦（地域貢献）</div>
+      <div class="event-date">2026/5/21（木）</div>
+    </div>
+    <span class="status-badge-event ev-urgent">🔥 今週実施</span>
+    <div class="event-progress-bar">
+      <div class="event-progress-text" id="prog-text-ev02">0%</div>
+      <div class="prog-bg"><div class="prog-fill" id="prog-ev02" style="width:0%"></div></div>
+    </div>
+    <div class="event-toggle">▼</div>
+  </div>
+  <div class="event-body">
+    <table class="task-table">
+      <thead><tr><th></th><th>タスク</th><th>担当</th><th>期限</th><th>優先度</th><th>メモ</th></tr></thead>
+      <tbody>
+        <tr class="task-row" data-event="ev02" data-who="土屋建設" data-dl="2026-05-18" data-id="t02-1">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t02-1')"></td>
+          <td>参加者・清掃エリア確認</td>
+          <td><span class="who who-tsuchiya">土屋建設</span></td>
+          <td class="dl">5/18</td><td><span class="pri pri-high">高</span></td>
+          <td class="note">6社メンバーに周知</td>
+        </tr>
+        <tr class="task-row" data-event="ev02" data-who="矢嶋建築" data-dl="2026-05-20" data-id="t02-2">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t02-2')"></td>
+          <td>道具・備品準備（ゴミ袋・軍手等）</td>
+          <td><span class="who who-yajima">矢嶋建築</span></td>
+          <td class="dl">5/20</td><td><span class="pri pri-high">高</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev02" data-who="田中建築" data-dl="2026-05-21" data-id="t02-3">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t02-3')"></td>
+          <td>報道・記事依頼（須坂新聞・北信ローカル）</td>
+          <td><span class="who who-tanaka">田中建築</span></td>
+          <td class="dl">5/21</td><td><span class="pri pri-mid">中</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev02" data-who="全員" data-dl="2026-05-21" data-id="t02-4">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t02-4')"></td>
+          <td>クリーン作戦 実施</td>
+          <td><span class="who who-all">全員</span></td>
+          <td class="dl">5/21</td><td><span class="pri pri-high">高</span></td><td class="note">SNS撮影も忘れずに</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ③販売促進企画 -->
+<div class="event-card" data-event="ev03">
+  <div class="event-header" onclick="toggleCard(this)">
+    <div class="event-num" style="background:#c62828">③</div>
+    <div class="event-title-wrap">
+      <div class="event-title">販売促進企画｜暮らし体感フェア</div>
+      <div class="event-date">2026/6/20（土）・21（日）　予算：¥313,000</div>
+    </div>
+    <span class="status-badge-event ev-urgent">🚨 最重要・最緊急</span>
+    <div class="event-progress-bar">
+      <div class="event-progress-text" id="prog-text-ev03">0%</div>
+      <div class="prog-bg"><div class="prog-fill" id="prog-ev03" style="width:0%"></div></div>
+    </div>
+    <div class="event-toggle">▼</div>
+  </div>
+  <div class="deadline-banner">💀 破綻デッドライン：チラシ印刷発注は <strong>5/16まで</strong>。これを過ぎると5/30折込が不可能になり集客ゼロになる。</div>
+  <div class="event-body">
+    <div class="section-label">【準備フェーズ① ～5/15】期限超過・本日期限</div>
+    <table class="task-table">
+      <thead><tr><th></th><th>タスク</th><th>担当</th><th>期限</th><th>優先度</th><th>メモ</th></tr></thead>
+      <tbody>
+        <tr class="task-row" data-event="ev03" data-who="土屋建設" data-dl="2026-05-07" data-id="t03-1">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t03-1')"></td>
+          <td>理事会 企画書確認・承認</td>
+          <td><span class="who who-tsuchiya">土屋建設</span></td>
+          <td class="dl">5/7</td><td><span class="pri pri-high">高</span></td><td class="note">5/10理事会で実施</td>
+        </tr>
+        <tr class="task-row" data-event="ev03" data-who="土屋建設" data-dl="2026-05-07" data-id="t03-2">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t03-2')"></td>
+          <td>中野市移住課 協力依頼</td>
+          <td><span class="who who-tsuchiya">土屋建設</span></td>
+          <td class="dl">5/7</td><td><span class="pri pri-high">高</span></td><td class="note">中野市移住課とコラボ</td>
+        </tr>
+        <tr class="task-row" data-event="ev03" data-who="阿部" data-dl="2026-05-07" data-id="t03-3">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t03-3')"></td>
+          <td>北信ローカル（リフレ）広告記事依頼</td>
+          <td><span class="who who-abe">阿部</span></td>
+          <td class="dl">5/7</td><td><span class="pri pri-mid">中</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev03" data-who="阿部" data-dl="2026-05-07" data-id="t03-4">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t03-4')"></td>
+          <td>須坂新聞 広告記事依頼</td>
+          <td><span class="who who-abe">阿部</span></td>
+          <td class="dl">5/7</td><td><span class="pri pri-mid">中</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev03" data-who="阿部" data-dl="2026-05-13" data-id="t03-5">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t03-5')"></td>
+          <td>チラシデザイン完成・理事メンバー確認</td>
+          <td><span class="who who-abe">阿部</span></td>
+          <td class="dl">5/13</td><td><span class="pri pri-high">高</span></td><td class="note">夏の涼しいデザイン指示：田中建築→阿部</td>
+        </tr>
+        <tr class="task-row" data-event="ev03" data-who="阿部" data-dl="2026-05-15" data-id="t03-6">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t03-6')"></td>
+          <td>【緊急】チラシ印刷発注（26,000部）</td>
+          <td><span class="who who-abe">阿部</span></td>
+          <td class="dl">5/15</td><td><span class="pri pri-critical">緊急</span></td><td class="note">A4両面カラー @5円 計130,000円</td>
+        </tr>
+        <tr class="task-row" data-event="ev03" data-who="矢嶋建築" data-dl="2026-05-15" data-id="t03-7">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t03-7')"></td>
+          <td>炭平（柳澤課長）協力確認</td>
+          <td><span class="who who-yajima">矢嶋建築</span></td>
+          <td class="dl">5/15</td><td><span class="pri pri-mid">中</span></td><td class="note">休日対応の範囲を確認</td>
+        </tr>
+        <tr class="task-row" data-event="ev03" data-who="土屋建設" data-dl="2026-05-15" data-id="t03-8">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t03-8')"></td>
+          <td>県庁移住課（平井さん）確認</td>
+          <td><span class="who who-tsuchiya">土屋建設</span></td>
+          <td class="dl">5/15</td><td><span class="pri pri-mid">中</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev03" data-who="矢嶋建築" data-dl="2026-05-15" data-id="t03-9">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t03-9')"></td>
+          <td>駐車場確保（職業訓練センター・岡沢新聞）</td>
+          <td><span class="who who-yajima">矢嶋建築</span></td>
+          <td class="dl">5/15</td><td><span class="pri pri-high">高</span></td><td class="note">@5,000円×2 計10,000円</td>
+        </tr>
+        <tr class="task-row" data-event="ev03" data-who="村山建設" data-dl="2026-05-15" data-id="t03-10">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t03-10')"></td>
+          <td>金融機関 協力確認</td>
+          <td><span class="who who-shinozuka">村山建設</span></td>
+          <td class="dl">5/15</td><td><span class="pri pri-mid">中</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev03" data-who="阿部" data-dl="2026-05-15" data-id="t03-11">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t03-11')"></td>
+          <td>景品確認（ぽんちゃんラーメン・キノコ）</td>
+          <td><span class="who who-abe">阿部</span></td>
+          <td class="dl">5/15</td><td><span class="pri pri-mid">中</span></td><td class="note">来場特典20セット@1,500円＋アンケート景品50名@200円</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="section-label">【準備フェーズ② 5/16〜5/22】SNS・折込・ハガキ</div>
+    <table class="task-table">
+      <thead><tr><th></th><th>タスク</th><th>担当</th><th>期限</th><th>優先度</th><th>メモ</th></tr></thead>
+      <tbody>
+        <tr class="task-row" data-event="ev03" data-who="全員" data-dl="2026-05-21" data-id="t03-12">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t03-12')"></td>
+          <td>理事会（第3週）開催・進捗確認</td>
+          <td><span class="who who-all">全理事</span></td>
+          <td class="dl">5/21</td><td><span class="pri pri-high">高</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev03" data-who="阿部" data-dl="2026-05-21" data-id="t03-13">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t03-13')"></td>
+          <td>インスタ投稿作成・掲載</td>
+          <td><span class="who who-abe">阿部</span></td>
+          <td class="dl">5/21</td><td><span class="pri pri-mid">中</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev03" data-who="田中建築" data-dl="2026-05-21" data-id="t03-14">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t03-14')"></td>
+          <td>インスタ広告設定（北信エリア30-40代）</td>
+          <td><span class="who who-tanaka">田中建築</span></td>
+          <td class="dl">5/21</td><td><span class="pri pri-mid">中</span></td><td class="note">WEB広告費30,000円</td>
+        </tr>
+        <tr class="task-row" data-event="ev03" data-who="田中建築" data-dl="2026-05-21" data-id="t03-15">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t03-15')"></td>
+          <td>HP掲載</td>
+          <td><span class="who who-tanaka">田中建築</span></td>
+          <td class="dl">5/21</td><td><span class="pri pri-mid">中</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev03" data-who="西埜" data-dl="2026-05-22" data-id="t03-16">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t03-16')"></td>
+          <td>来場者へハガキ発送（約200枚）</td>
+          <td><span class="who who-nishino">西埜</span></td>
+          <td class="dl">5/22</td><td><span class="pri pri-mid">中</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev03" data-who="西埜" data-dl="2026-05-22" data-id="t03-17">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t03-17')"></td>
+          <td>移住課チラシ納付</td>
+          <td><span class="who who-nishino">西埜</span></td>
+          <td class="dl">5/22</td><td><span class="pri pri-mid">中</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev03" data-who="村山建設" data-dl="2026-05-22" data-id="t03-18">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t03-18')"></td>
+          <td>金融機関各支店チラシ配布</td>
+          <td><span class="who who-shinozuka">村山建設</span></td>
+          <td class="dl">5/22</td><td><span class="pri pri-mid">中</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev03" data-who="阿部" data-dl="2026-05-22" data-id="t03-19">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t03-19')"></td>
+          <td>折込チラシ依頼（信濃毎日新聞等）</td>
+          <td><span class="who who-abe">阿部</span></td>
+          <td class="dl">5/22</td><td><span class="pri pri-high">高</span></td><td class="note">26,000部 @3.5円 計91,000円</td>
+        </tr>
+        <tr class="task-row" data-event="ev03" data-who="田中建築" data-dl="2026-05-22" data-id="t03-20">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t03-20')"></td>
+          <td>北信ローカル広告最終確定</td>
+          <td><span class="who who-tanaka">田中建築</span></td>
+          <td class="dl">5/22</td><td><span class="pri pri-mid">中</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev03" data-who="田中建築" data-dl="2026-05-22" data-id="t03-21">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t03-21')"></td>
+          <td>須坂新聞広告最終確定</td>
+          <td><span class="who who-tanaka">田中建築</span></td>
+          <td class="dl">5/22</td><td><span class="pri pri-mid">中</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev03" data-who="西埜" data-dl="2026-05-22" data-id="t03-22">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t03-22')"></td>
+          <td>職業訓練センター・アクセスさんチラシ配布</td>
+          <td><span class="who who-nishino">西埜</span></td>
+          <td class="dl">5/22</td><td><span class="pri pri-mid">中</span></td><td></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="section-label">【準備フェーズ③ 5/23〜6/5】折込・ポスティング・最終確認</div>
+    <table class="task-table">
+      <thead><tr><th></th><th>タスク</th><th>担当</th><th>期限</th><th>優先度</th><th>メモ</th></tr></thead>
+      <tbody>
+        <tr class="task-row" data-event="ev03" data-who="西埜" data-dl="2026-05-28" data-id="t03-23">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t03-23')"></td>
+          <td>チラシポスティング（飯山・山ノ内・木島平・野沢・栄）</td>
+          <td><span class="who who-nishino">西埜</span></td>
+          <td class="dl">5/28</td><td><span class="pri pri-mid">中</span></td><td class="note">2,000部 @6円 計12,000円</td>
+        </tr>
+        <tr class="task-row" data-event="ev03" data-who="阿部" data-dl="2026-05-30" data-id="t03-24">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t03-24')"></td>
+          <td>折込チラシ実施（5/30）</td>
+          <td><span class="who who-abe">阿部</span></td>
+          <td class="dl">5/30</td><td><span class="pri pri-high">高</span></td><td class="note">中野市12,500部・飯山6,500部・山ノ内3,500部他</td>
+        </tr>
+        <tr class="task-row" data-event="ev03" data-who="田中建築" data-dl="2026-05-30" data-id="t03-25">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t03-25')"></td>
+          <td>北信ローカル広告掲載（5/30号）</td>
+          <td><span class="who who-tanaka">田中建築</span></td>
+          <td class="dl">5/30</td><td><span class="pri pri-mid">中</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev03" data-who="田中建築" data-dl="2026-05-30" data-id="t03-26">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t03-26')"></td>
+          <td>須坂新聞広告掲載（5/30）</td>
+          <td><span class="who who-tanaka">田中建築</span></td>
+          <td class="dl">5/30</td><td><span class="pri pri-mid">中</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev03" data-who="村山建設" data-dl="2026-06-01" data-id="t03-27">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t03-27')"></td>
+          <td>景品在庫最終確認</td>
+          <td><span class="who who-shinozuka">村山建設</span></td>
+          <td class="dl">6/1</td><td><span class="pri pri-mid">中</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev03" data-who="矢嶋建築" data-dl="2026-06-01" data-id="t03-28">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t03-28')"></td>
+          <td>駐車場最終確認</td>
+          <td><span class="who who-yajima">矢嶋建築</span></td>
+          <td class="dl">6/1</td><td><span class="pri pri-mid">中</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev03" data-who="村山建設" data-dl="2026-06-01" data-id="t03-29">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t03-29')"></td>
+          <td>金融機関最終確認</td>
+          <td><span class="who who-shinozuka">村山建設</span></td>
+          <td class="dl">6/1</td><td><span class="pri pri-mid">中</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev03" data-who="全員" data-dl="2026-06-03" data-id="t03-30">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t03-30')"></td>
+          <td>理事会 最終確認・7月イベント方針確認</td>
+          <td><span class="who who-all">全理事</span></td>
+          <td class="dl">6/3</td><td><span class="pri pri-high">高</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev03" data-who="矢嶋建築" data-dl="2026-06-05" data-id="t03-31">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t03-31')"></td>
+          <td>前日最終確認（駐車場・景品・動線）</td>
+          <td><span class="who who-yajima">矢嶋建築</span></td>
+          <td class="dl">6/5</td><td><span class="pri pri-high">高</span></td><td></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="section-label">【当日・事後】</div>
+    <table class="task-table">
+      <thead><tr><th></th><th>タスク</th><th>担当</th><th>期限</th><th>優先度</th><th>メモ</th></tr></thead>
+      <tbody>
+        <tr class="task-row" data-event="ev03" data-who="冨岡建設" data-dl="2026-06-20" data-id="t03-32">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t03-32')"></td>
+          <td>当日準備（幟旗設置・受付動線確認）9:30〜</td>
+          <td><span class="who who-tomioka">冨岡建設</span></td>
+          <td class="dl">6/20 9:30</td><td><span class="pri pri-high">高</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev03" data-who="全員" data-dl="2026-06-20" data-id="t03-33">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t03-33')"></td>
+          <td>イベント本番 1日目（6/20）10:00〜16:00</td>
+          <td><span class="who who-all">全員</span></td>
+          <td class="dl">6/20</td><td><span class="pri pri-high">高</span></td><td class="note">来場者アンケート実施・SNS当日発信</td>
+        </tr>
+        <tr class="task-row" data-event="ev03" data-who="全員" data-dl="2026-06-21" data-id="t03-34">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t03-34')"></td>
+          <td>イベント本番 2日目（6/21）10:00〜16:00</td>
+          <td><span class="who who-all">全員</span></td>
+          <td class="dl">6/21</td><td><span class="pri pri-high">高</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev03" data-who="須坂土建工業" data-dl="2026-06-21" data-id="t03-35">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t03-35')"></td>
+          <td>反省会（6/21 17:00〜）・翌日対応確認</td>
+          <td><span class="who who-yamazaki">須坂土建工業</span></td>
+          <td class="dl">6/21 17:00</td><td><span class="pri pri-high">高</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev03" data-who="各営業" data-dl="2026-06-23" data-id="t03-36">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t03-36')"></td>
+          <td>お礼状送付・電話フォロー（3日以内）</td>
+          <td><span class="who who-sales">各営業</span></td>
+          <td class="dl">6/23</td><td><span class="pri pri-high">高</span></td><td class="note">顧客の熱量が冷める前に接点を！</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ④似顔絵展 -->
+<div class="event-card" data-event="ev04">
+  <div class="event-header" onclick="toggleCard(this)">
+    <div class="event-num" style="background:#e65100">④</div>
+    <div class="event-title-wrap">
+      <div class="event-title">「ぼく・わたしの家族」似顔絵展</div>
+      <div class="event-date">展示：2026/6/15〜28　表彰式：6/20　担当：冨岡建設</div>
+    </div>
+    <span class="status-badge-event ev-urgent">🔥 今週対応必須</span>
+    <div class="event-progress-bar">
+      <div class="event-progress-text" id="prog-text-ev04">0%</div>
+      <div class="prog-bg"><div class="prog-fill" id="prog-ev04" style="width:0%"></div></div>
+    </div>
+    <div class="event-toggle">▼</div>
+  </div>
+  <div class="deadline-banner">💀 破綻デッドライン：<strong>5/22</strong>までに保育園正式依頼＆画用紙配布が完了しなければ、6/15の展示設営に絶対間に合わない。</div>
+  <div class="event-body">
+    <table class="task-table">
+      <thead><tr><th></th><th>タスク</th><th>担当</th><th>期限</th><th>優先度</th><th>メモ</th></tr></thead>
+      <tbody>
+        <tr class="task-row" data-event="ev04" data-who="土屋建設" data-dl="2026-05-11" data-id="t04-1">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t04-1')"></td>
+          <td>マリア幼稚園 協力依頼（初回アポ）</td>
+          <td><span class="who who-tsuchiya">土屋建設</span></td>
+          <td class="dl">5/11週</td><td><span class="pri pri-high">高</span></td><td class="note">第一弾はマリア幼稚園（0269-22-3503）</td>
+        </tr>
+        <tr class="task-row" data-event="ev04" data-who="土屋建設" data-dl="2026-05-18" data-id="t04-2">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t04-2')"></td>
+          <td>マリア幼稚園 正式依頼・確定</td>
+          <td><span class="who who-tsuchiya">土屋建設</span></td>
+          <td class="dl">5/18</td><td><span class="pri pri-critical">緊急</span></td><td class="note">これが遅れると全て崩壊</td>
+        </tr>
+        <tr class="task-row" data-event="ev04" data-who="全員" data-dl="2026-05-21" data-id="t04-3">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t04-3')"></td>
+          <td>理事会にて各賞の正式名称・スポンサー確定</td>
+          <td><span class="who who-all">全理事</span></td>
+          <td class="dl">5/21</td><td><span class="pri pri-mid">中</span></td><td class="note">市長賞・スマイル賞・芸術賞・ほほえみ賞・どろんこ賞・ユーモア賞・ハッピー賞・センター賞 等</td>
+        </tr>
+        <tr class="task-row" data-event="ev04" data-who="冨岡建設" data-dl="2026-05-21" data-id="t04-4">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t04-4')"></td>
+          <td>来場特典（園児参加賞）内容確定</td>
+          <td><span class="who who-tomioka">冨岡建設</span></td>
+          <td class="dl">5/21</td><td><span class="pri pri-mid">中</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev04" data-who="阿部" data-dl="2026-05-22" data-id="t04-5">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t04-5')"></td>
+          <td>画用紙（A3・ロゴ入り）印刷・準備</td>
+          <td><span class="who who-abe">阿部</span></td>
+          <td class="dl">5/22</td><td><span class="pri pri-high">高</span></td><td class="note">保育園名・氏名欄あり</td>
+        </tr>
+        <tr class="task-row" data-event="ev04" data-who="センター" data-dl="2026-05-25" data-id="t04-6">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t04-6')"></td>
+          <td>保護者へ依頼文書・画用紙配布</td>
+          <td><span class="who who-center">センタースタッフ</span></td>
+          <td class="dl">5/25週</td><td><span class="pri pri-high">高</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev04" data-who="田中建築" data-dl="2026-05-28" data-id="t04-7">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t04-7')"></td>
+          <td>北信ローカル・須坂新聞 記事依頼</td>
+          <td><span class="who who-tanaka">田中建築</span></td>
+          <td class="dl">5/下旬</td><td><span class="pri pri-mid">中</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev04" data-who="阿部" data-dl="2026-05-28" data-id="t04-8">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t04-8')"></td>
+          <td>インスタ告知掲載（#家ッス信州）</td>
+          <td><span class="who who-abe">阿部</span></td>
+          <td class="dl">5/下旬</td><td><span class="pri pri-mid">中</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev04" data-who="センター" data-dl="2026-06-08" data-id="t04-9">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t04-9')"></td>
+          <td>作品回収（マリア幼稚園から）</td>
+          <td><span class="who who-center">センタースタッフ</span></td>
+          <td class="dl">6/8週</td><td><span class="pri pri-high">高</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev04" data-who="全員" data-dl="2026-06-12" data-id="t04-10">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t04-10')"></td>
+          <td>理事会にて審査・賞状作成</td>
+          <td><span class="who who-all">全理事+センター+メディア</span></td>
+          <td class="dl">6/12頃</td><td><span class="pri pri-high">高</span></td><td class="note">審査員：理事6名+センター2名+メディア2社 計12票</td>
+        </tr>
+        <tr class="task-row" data-event="ev04" data-who="阿部" data-dl="2026-06-15" data-id="t04-11">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t04-11')"></td>
+          <td>展示パネル作成・各棟設営</td>
+          <td><span class="who who-abe">阿部・西埜</span></td>
+          <td class="dl">6/15</td><td><span class="pri pri-high">高</span></td><td class="note">各モデルハウスに分散展示（全棟内覧に誘導）</td>
+        </tr>
+        <tr class="task-row" data-event="ev04" data-who="阿部" data-dl="2026-06-15" data-id="t04-12">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t04-12')"></td>
+          <td>フォトスポット設置</td>
+          <td><span class="who who-abe">阿部・西埜</span></td>
+          <td class="dl">6/15</td><td><span class="pri pri-mid">中</span></td><td class="note">作品と一緒に記念撮影→SNS拡散狙い</td>
+        </tr>
+        <tr class="task-row" data-event="ev04" data-who="土屋建設" data-dl="2026-06-20" data-id="t04-13">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t04-13')"></td>
+          <td>表彰式実施（6/20 販売促進フェアと同日）</td>
+          <td><span class="who who-tsuchiya">土屋建設</span></td>
+          <td class="dl">6/20</td><td><span class="pri pri-high">高</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev04" data-who="阿部" data-dl="2026-06-20" data-id="t04-14">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t04-14')"></td>
+          <td>SNS拡散（#家ッス信州）</td>
+          <td><span class="who who-abe">阿部</span></td>
+          <td class="dl">6/20</td><td><span class="pri pri-mid">中</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev04" data-who="阿部" data-dl="2026-06-29" data-id="t04-15">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t04-15')"></td>
+          <td>展示撤去</td>
+          <td><span class="who who-abe">阿部・西埜</span></td>
+          <td class="dl">6/29</td><td><span class="pri pri-mid">中</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev04" data-who="センター" data-dl="2026-07-07" data-id="t04-16">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t04-16')"></td>
+          <td>マリア幼稚園へ作品返却</td>
+          <td><span class="who who-center">センタースタッフ</span></td>
+          <td class="dl">7/7週</td><td><span class="pri pri-mid">中</span></td><td></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ⑤森林伐採ツアー -->
+<div class="event-card" data-event="ev05">
+  <div class="event-header" onclick="toggleCard(this)">
+    <div class="event-num" style="background:#2e7d32">⑤</div>
+    <div class="event-title-wrap">
+      <div class="event-title">「信州の木で家をつくる」森林伐採体験ツアー</div>
+      <div class="event-date">2026/7月旬（日程未定）　統括：土屋建設　行程管理：田中建築</div>
+    </div>
+    <span class="status-badge-event ev-active">🌳 協議中</span>
+    <div class="event-progress-bar">
+      <div class="event-progress-text" id="prog-text-ev05">0%</div>
+      <div class="prog-bg"><div class="prog-fill" id="prog-ev05" style="width:0%"></div></div>
+    </div>
+    <div class="event-toggle">▼</div>
+  </div>
+  <div class="deadline-banner">💀 破翻デッドライン：<strong>6/15</strong>までに日程確定・長野県森林課OKが出なければ7月開催は物理的に不可能。</div>
+  <div class="event-body">
+    <table class="task-table">
+      <thead><tr><th></th><th>タスク</th><th>担当</th><th>期限</th><th>優先度</th><th>メモ</th></tr></thead>
+      <tbody>
+        <tr class="task-row" data-event="ev05" data-who="田中建築" data-dl="2026-05-21" data-id="t05-1">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t05-1')"></td>
+          <td>瑞穂木材㈱と日程協議（田中建築・矢嶋窓口）</td>
+          <td><span class="who who-tanaka">田中建築</span></td>
+          <td class="dl">5/21</td><td><span class="pri pri-critical">緊急</span></td><td class="note">梅雨の晴れ間を狙う。まず瑞穂木材に連絡</td>
+        </tr>
+        <tr class="task-row" data-event="ev05" data-who="土屋建設" data-dl="2026-05-28" data-id="t05-2">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t05-2')"></td>
+          <td>長野県森林課 協力依頼（仮）</td>
+          <td><span class="who who-tsuchiya">土屋建設</span></td>
+          <td class="dl">5/下旬</td><td><span class="pri pri-high">高</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev05" data-who="田中建築" data-dl="2026-05-31" data-id="t05-3">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t05-3')"></td>
+          <td>開催日程・旬 確定</td>
+          <td><span class="who who-tanaka">田中建築</span></td>
+          <td class="dl">5/末</td><td><span class="pri pri-high">高</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev05" data-who="矢嶋建築" data-dl="2026-06-05" data-id="t05-4">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t05-4')"></td>
+          <td>定員・募集要項確定</td>
+          <td><span class="who who-yajima">矢嶋建築</span></td>
+          <td class="dl">6/上旬</td><td><span class="pri pri-high">高</span></td><td class="note">対象：家ッス！で家を建てる方・リフォームする方</td>
+        </tr>
+        <tr class="task-row" data-event="ev05" data-who="冨岡建設" data-dl="2026-06-05" data-id="t05-5">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t05-5')"></td>
+          <td>保険加入（参加者向け）手続き</td>
+          <td><span class="who who-tomioka">冨岡建設建設・矢嶋建築</span></td>
+          <td class="dl">6/上旬</td><td><span class="pri pri-high">高</span></td><td class="note">山林での安全確保が最優先</td>
+        </tr>
+        <tr class="task-row" data-event="ev05" data-who="冨岡建設" data-dl="2026-06-05" data-id="t05-6">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t05-6')"></td>
+          <td>移動手段（バス等）確認・手配</td>
+          <td><span class="who who-tomioka">冨岡建設</span></td>
+          <td class="dl">6/上旬</td><td><span class="pri pri-high">高</span></td><td class="note">瑞穂木材→山林→瑞穂木材の行程</td>
+        </tr>
+        <tr class="task-row" data-event="ev05" data-who="矢嶋建築" data-dl="2026-06-05" data-id="t05-7">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t05-7')"></td>
+          <td>参加特典確認（端材コースター・瑞穂木材グッズ）</td>
+          <td><span class="who who-yajima">矢嶋建築</span></td>
+          <td class="dl">6/上旬</td><td><span class="pri pri-mid">中</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev05" data-who="阿部" data-dl="2026-06-15" data-id="t05-8">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t05-8')"></td>
+          <td>チラシ作成（阿部）・応募開始</td>
+          <td><span class="who who-abe">阿部</span></td>
+          <td class="dl">6/中旬</td><td><span class="pri pri-high">高</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev05" data-who="田中建築" data-dl="2026-06-15" data-id="t05-9">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t05-9')"></td>
+          <td>応募記事依頼（北信ローカル・須坂新聞）</td>
+          <td><span class="who who-tanaka">田中建築</span></td>
+          <td class="dl">6/中旬</td><td><span class="pri pri-mid">中</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev05" data-who="矢嶋建築" data-dl="2026-06-25" data-id="t05-10">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t05-10')"></td>
+          <td>安全管理計画作成・確認</td>
+          <td><span class="who who-yajima">矢嶋建築</span></td>
+          <td class="dl">6/下旬</td><td><span class="pri pri-high">高</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev05" data-who="阿部" data-dl="2026-06-25" data-id="t05-11">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t05-11')"></td>
+          <td>SNS事前告知（伐採動画予告）</td>
+          <td><span class="who who-abe">阿部</span></td>
+          <td class="dl">6/下旬</td><td><span class="pri pri-mid">中</span></td><td class="note">瑞穂木材広報担当と連携</td>
+        </tr>
+        <tr class="task-row" data-event="ev05" data-who="西埜" data-dl="2026-07-05" data-id="t05-12">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t05-12')"></td>
+          <td>参加者名簿作成・連絡完了</td>
+          <td><span class="who who-nishino">西埜</span></td>
+          <td class="dl">7/上旬</td><td><span class="pri pri-mid">中</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev05" data-who="冨岡建設" data-dl="2026-07-05" data-id="t05-13">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t05-13')"></td>
+          <td>昼食（地元食材弁当）手配</td>
+          <td><span class="who who-tomioka">冨岡建設</span></td>
+          <td class="dl">7/上旬</td><td><span class="pri pri-mid">中</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev05" data-who="全員" data-dl="2026-07-15" data-id="t05-14">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t05-14')"></td>
+          <td>ツアー当日実施</td>
+          <td><span class="who who-all">全員</span></td>
+          <td class="dl">7/旬</td><td><span class="pri pri-high">高</span></td><td class="note">AM9:00瑞穂木材集合→山林→昼食→製材所→PM3:30解散</td>
+        </tr>
+        <tr class="task-row" data-event="ev05" data-who="阿部" data-dl="2026-07-22" data-id="t05-15">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t05-15')"></td>
+          <td>ツアー報告写真展 設営（展示場内）</td>
+          <td><span class="who who-abe">阿部</span></td>
+          <td class="dl">ツアー後1週間</td><td><span class="pri pri-mid">中</span></td><td class="note">参加者の再来場を促す</td>
+        </tr>
+        <tr class="task-row" data-event="ev05" data-who="西埜" data-dl="2026-07-18" data-id="t05-16">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t05-16')"></td>
+          <td>アンケートまとめ・SNS投稿</td>
+          <td><span class="who who-nishino">西埜・阿部</span></td>
+          <td class="dl">ツアー後3日</td><td><span class="pri pri-mid">中</span></td><td></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ⑥ダイハツ試乗会 -->
+<div class="event-card" data-event="ev06">
+  <div class="event-header" onclick="toggleCard(this)">
+    <div class="event-num" style="background:#1565c0">⑥</div>
+    <div class="event-title-wrap">
+      <div class="event-title">ダイハツ試乗会</div>
+      <div class="event-date">2026/7/18（土）予定　一部10:00〜16:00　二部18:00〜20:00　担当：矢嶋</div>
+    </div>
+    <span class="status-badge-event ev-active">🚗 協議中</span>
+    <div class="event-progress-bar">
+      <div class="event-progress-text" id="prog-text-ev06">0%</div>
+      <div class="prog-bg"><div class="prog-fill" id="prog-ev06" style="width:0%"></div></div>
+    </div>
+    <div class="event-toggle">▼</div>
+  </div>
+  <div class="event-body">
+    <table class="task-table">
+      <thead><tr><th></th><th>タスク</th><th>担当</th><th>期限</th><th>優先度</th><th>メモ</th></tr></thead>
+      <tbody>
+        <tr class="task-row" data-event="ev06" data-who="矢嶋建築" data-dl="2026-05-28" data-id="t06-1">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t06-1')"></td>
+          <td>須崎自動車 協議・日程確定</td>
+          <td><span class="who who-yajima">矢嶋建築建築</span></td>
+          <td class="dl">5/下旬</td><td><span class="pri pri-high">高</span></td><td class="note">矢嶋建築→須崎自動車へ連絡</td>
+        </tr>
+        <tr class="task-row" data-event="ev06" data-who="矢嶋建築" data-dl="2026-06-05" data-id="t06-2">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t06-2')"></td>
+          <td>試乗車・台数・場所レイアウト確認</td>
+          <td><span class="who who-yajima">矢嶋建築</span></td>
+          <td class="dl">6/上旬</td><td><span class="pri pri-high">高</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev06" data-who="阿部" data-dl="2026-06-15" data-id="t06-3">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t06-3')"></td>
+          <td>チラシ制作</td>
+          <td><span class="who who-abe">阿部</span></td>
+          <td class="dl">6/中旬</td><td><span class="pri pri-high">高</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev06" data-who="田中建築" data-dl="2026-06-25" data-id="t06-4">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t06-4')"></td>
+          <td>新聞広告・SNS手配</td>
+          <td><span class="who who-tanaka">田中建築</span></td>
+          <td class="dl">6/下旬</td><td><span class="pri pri-mid">中</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev06" data-who="西埜" data-dl="2026-07-10" data-id="t06-5">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t06-5')"></td>
+          <td>備品・幟旗準備</td>
+          <td><span class="who who-nishino">西埜</span></td>
+          <td class="dl">7/上旬</td><td><span class="pri pri-mid">中</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev06" data-who="全員" data-dl="2026-07-18" data-id="t06-6">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t06-6')"></td>
+          <td>試乗会実施（7/18）</td>
+          <td><span class="who who-all">全員</span></td>
+          <td class="dl">7/18</td><td><span class="pri pri-high">高</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev06" data-who="各営業" data-dl="2026-07-21" data-id="t06-7">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t06-7')"></td>
+          <td>来場者フォロー（3日以内）</td>
+          <td><span class="who who-sales">各営業</span></td>
+          <td class="dl">7/21</td><td><span class="pri pri-high">高</span></td><td></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ⑦ナイトツアー -->
+<div class="event-card" data-event="ev07">
+  <div class="event-header" onclick="toggleCard(this)">
+    <div class="event-num" style="background:#311b92">⑦</div>
+    <div class="event-title-wrap">
+      <div class="event-title">夜の「家ッス！信州」静寂と光のナイトツアー</div>
+      <div class="event-date">2026/8/3（水）〜9（日）　18:00〜21:00（完全予約制・3部制）　予算：¥313,000</div>
+    </div>
+    <span class="status-badge-event ev-plan">🌙 企画確定待ち</span>
+    <div class="event-progress-bar">
+      <div class="event-progress-text" id="prog-text-ev07">0%</div>
+      <div class="prog-bg"><div class="prog-fill" id="prog-ev07" style="width:0%"></div></div>
+    </div>
+    <div class="event-toggle">▼</div>
+  </div>
+  <div class="deadline-banner">💀 破綻デッドライン：<strong>6/20</strong>までに企画詳細確定・予約受付開始しなければ8/3開催時の集客が確保できない。</div>
+  <div class="event-body">
+    <table class="task-table">
+      <thead><tr><th></th><th>タスク</th><th>担当</th><th>期限</th><th>優先度</th><th>メモ</th></tr></thead>
+      <tbody>
+        <tr class="task-row" data-event="ev07" data-who="田中建築" data-dl="2026-06-05" data-id="t07-1">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t07-1')"></td>
+          <td>企画コンテンツ詳細確定（理事会承認）</td>
+          <td><span class="who who-tanaka">田中建築</span></td>
+          <td class="dl">6/上旬</td><td><span class="pri pri-high">高</span></td><td class="note">①五感体験 ②照明コンサル ③プチカフェ の3本柱</td>
+        </tr>
+        <tr class="task-row" data-event="ev07" data-who="田中建築" data-dl="2026-06-05" data-id="t07-2">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t07-2')"></td>
+          <td>イベント名称最終決定</td>
+          <td><span class="who who-tanaka">田中建築</span></td>
+          <td class="dl">6/上旬</td><td><span class="pri pri-mid">中</span></td><td class="note">「静寂と光のナイトツアー」は仮称</td>
+        </tr>
+        <tr class="task-row" data-event="ev07" data-who="矢嶋建築" data-dl="2026-06-15" data-id="t07-3">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t07-3')"></td>
+          <td>近隣住民への配慮事前確認</td>
+          <td><span class="who who-yajima">矢嶋建築</span></td>
+          <td class="dl">6/中旬</td><td><span class="pri pri-high">高</span></td><td class="note">外構ライトアップ・話し声に注意</td>
+        </tr>
+        <tr class="task-row" data-event="ev07" data-who="阿部" data-dl="2026-06-20" data-id="t07-4">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t07-4')"></td>
+          <td>予約システム設定（LINE公式等）・受付開始</td>
+          <td><span class="who who-abe">阿部</span></td>
+          <td class="dl">6/下旬</td><td><span class="pri pri-high">高</span></td><td class="note">完全予約制・1組1名コンシェルジュ配置</td>
+        </tr>
+        <tr class="task-row" data-event="ev07" data-who="阿部" data-dl="2026-06-25" data-id="t07-5">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t07-5')"></td>
+          <td>チラシ制作・印刷発注</td>
+          <td><span class="who who-abe">阿部</span></td>
+          <td class="dl">6/下旬</td><td><span class="pri pri-high">高</span></td><td class="note">夕暮れ外観・間接照明リビング写真を使用</td>
+        </tr>
+        <tr class="task-row" data-event="ev07" data-who="田中建築" data-dl="2026-07-10" data-id="t07-6">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t07-6')"></td>
+          <td>WEB広告設定（Instagram/Facebook）</td>
+          <td><span class="who who-tanaka">田中建築</span></td>
+          <td class="dl">7/中旬</td><td><span class="pri pri-mid">中</span></td><td class="note">30,000円　ターゲット：北信エリア30-40代</td>
+        </tr>
+        <tr class="task-row" data-event="ev07" data-who="村山建設" data-dl="2026-07-15" data-id="t07-7">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t07-7')"></td>
+          <td>ノベルティ調達（リラックスアロマ・バスソルト×20セット）</td>
+          <td><span class="who who-shinozuka">村山建設</span></td>
+          <td class="dl">7/中旬</td><td><span class="pri pri-mid">中</span></td><td class="note">事前予約特典 @1,500円 計30,000円</td>
+        </tr>
+        <tr class="task-row" data-event="ev07" data-who="矢嶋建築" data-dl="2026-07-15" data-id="t07-8">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t07-8')"></td>
+          <td>誘導灯・足元安全設備確認・設置</td>
+          <td><span class="who who-yajima">矢嶋建築</span></td>
+          <td class="dl">7/中旬</td><td><span class="pri pri-high">高</span></td><td class="note">駐車場〜玄関まで十分な誘導灯必須</td>
+        </tr>
+        <tr class="task-row" data-event="ev07" data-who="矢嶋建築" data-dl="2026-07-15" data-id="t07-9">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t07-9')"></td>
+          <td>駐車場確保（職業訓練センター・岡沢新聞）</td>
+          <td><span class="who who-yajima">矢嶋建築</span></td>
+          <td class="dl">7/中旬</td><td><span class="pri pri-mid">中</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev07" data-who="冨岡建設" data-dl="2026-07-25" data-id="t07-10">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t07-10')"></td>
+          <td>LEDキャンドル・ヒーリング音楽設備準備</td>
+          <td><span class="who who-tomioka">冨岡建設</span></td>
+          <td class="dl">7/下旬</td><td><span class="pri pri-mid">中</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev07" data-who="村山建設" data-dl="2026-07-25" data-id="t07-11">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t07-11')"></td>
+          <td>地元ハーブティー・ノンアルカクテル・小菓子 調達</td>
+          <td><span class="who who-shinozuka">村山建設</span></td>
+          <td class="dl">7/下旬</td><td><span class="pri pri-mid">中</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev07" data-who="須坂土建工業" data-dl="2026-07-25" data-id="t07-12">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t07-12')"></td>
+          <td>スタッフシフト確認（18:00〜21:00×7日分）</td>
+          <td><span class="who who-yamazaki">須坂土建工業</span></td>
+          <td class="dl">7/下旬</td><td><span class="pri pri-high">高</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev07" data-who="西埜" data-dl="2026-07-28" data-id="t07-13">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t07-13')"></td>
+          <td>チラシポスティング</td>
+          <td><span class="who who-nishino">西埜</span></td>
+          <td class="dl">7/下旬</td><td><span class="pri pri-mid">中</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev07" data-who="全員" data-dl="2026-08-03" data-id="t07-14">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t07-14')"></td>
+          <td>ナイトツアー実施（8/3〜9 毎日18:00〜21:00）</td>
+          <td><span class="who who-all">全員</span></td>
+          <td class="dl">8/3〜9</td><td><span class="pri pri-high">高</span></td><td class="note">コンシェルジュ1組1名・演出担当・安全担当の3役制</td>
+        </tr>
+        <tr class="task-row" data-event="ev07" data-who="各営業" data-dl="2026-08-12" data-id="t07-15">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t07-15')"></td>
+          <td>アフターフォロー・お礼連絡（3日以内）</td>
+          <td><span class="who who-sales">各営業</span></td>
+          <td class="dl">8/12</td><td><span class="pri pri-high">高</span></td><td></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ⑨マツダ試乗 -->
+<div class="event-card" data-event="ev09">
+  <div class="event-header" onclick="toggleCard(this)">
+    <div class="event-num" style="background:#0277bd">⑨</div>
+    <div class="event-title-wrap">
+      <div class="event-title">マツダ試乗会</div>
+      <div class="event-date">2026/7〜8月（日程未定）　マツダ・炭平コラボ　担当：村山建設/平井</div>
+    </div>
+    <span class="status-badge-event ev-plan">🚘 協議中</span>
+    <div class="event-progress-bar">
+      <div class="event-progress-text" id="prog-text-ev09">0%</div>
+      <div class="prog-bg"><div class="prog-fill" id="prog-ev09" style="width:0%"></div></div>
+    </div>
+    <div class="event-toggle">▼</div>
+  </div>
+  <div class="event-body">
+    <table class="task-table">
+      <thead><tr><th></th><th>タスク</th><th>担当</th><th>期限</th><th>優先度</th><th>メモ</th></tr></thead>
+      <tbody>
+        <tr class="task-row" data-event="ev09" data-who="村山建設" data-dl="2026-05-28" data-id="t09-1">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t09-1')"></td>
+          <td>マツダ・炭平（平井さん）協議</td>
+          <td><span class="who who-shinozuka">村山建設/平井</span></td>
+          <td class="dl">5/下旬</td><td><span class="pri pri-high">高</span></td><td class="note">協議（平井）→チラシ制作の流れ</td>
+        </tr>
+        <tr class="task-row" data-event="ev09" data-who="村山建設" data-dl="2026-06-05" data-id="t09-2">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t09-2')"></td>
+          <td>日程・台数・場所確定</td>
+          <td><span class="who who-shinozuka">村山建設</span></td>
+          <td class="dl">6/上旬</td><td><span class="pri pri-high">高</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev09" data-who="阿部" data-dl="2026-06-25" data-id="t09-3">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t09-3')"></td>
+          <td>チラシ制作</td>
+          <td><span class="who who-abe">阿部</span></td>
+          <td class="dl">6/下旬</td><td><span class="pri pri-mid">中</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev09" data-who="田中建築" data-dl="2026-07-05" data-id="t09-4">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t09-4')"></td>
+          <td>告知（SNS・新聞広告）</td>
+          <td><span class="who who-tanaka">田中建築</span></td>
+          <td class="dl">7/上旬</td><td><span class="pri pri-mid">中</span></td><td></td>
+        </tr>
+        <tr class="task-row" data-event="ev09" data-who="全員" data-dl="2026-08-01" data-id="t09-5">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t09-5')"></td>
+          <td>試乗会実施</td>
+          <td><span class="who who-all">全員</span></td>
+          <td class="dl">7-8月</td><td><span class="pri pri-high">高</span></td><td></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- 後半イベント -->
+<div class="event-card" data-event="ev-later">
+  <div class="event-header" onclick="toggleCard(this)">
+    <div class="event-num" style="background:#37474f">⑩〜</div>
+    <div class="event-title-wrap">
+      <div class="event-title">後半イベント（⑩〜⑭）</div>
+      <div class="event-date">9月〜2027/1月　※これから協議するイベント企画</div>
+    </div>
+    <span class="status-badge-event ev-future">📋 今後協議</span>
+    <div class="event-toggle">▼</div>
+  </div>
+  <div class="event-body">
+    <table class="task-table">
+      <thead><tr><th></th><th>イベント</th><th>日程（案）</th><th>担当</th><th>次のアクション期限</th><th>優先度</th></tr></thead>
+      <tbody>
+        <tr class="task-row" data-event="ev-later" data-who="全員" data-dl="2026-09-19" data-id="t10-1">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t10-1')"></td>
+          <td>⑩ リフォームフェアー<br><small>・企画確定→チラシ→折込→備品→当日→フォロー</small></td>
+          <td>9/19〜20（案）</td>
+          <td><span class="who who-all">全理事</span></td>
+          <td class="dl">7月中旬に企画確定</td><td><span class="pri pri-mid">中</span></td>
+        </tr>
+        <tr class="task-row" data-event="ev-later" data-who="全員" data-dl="2026-10-01" data-id="t10-2">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t10-2')"></td>
+          <td>クリーン作戦（秋）<br><small>地域貢献・報道記事依頼</small></td>
+          <td>10月（案）</td>
+          <td><span class="who who-all">全員</span></td>
+          <td class="dl">9月中旬に日程確定</td><td><span class="pri pri-low">低</span></td>
+        </tr>
+        <tr class="task-row" data-event="ev-later" data-who="全員" data-dl="2026-10-24" data-id="t10-3">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t10-3')"></td>
+          <td>⑪ OB客感謝祭→木工教室<br><small>・企画確定→チラシ→折込→備品→当日→フォロー</small></td>
+          <td>10/24〜25（案）</td>
+          <td><span class="who who-all">全理事</span></td>
+          <td class="dl">8月中旬に企画確定</td><td><span class="pri pri-mid">中</span></td>
+        </tr>
+        <tr class="task-row" data-event="ev-later" data-who="全員" data-dl="2026-11-21" data-id="t10-4">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t10-4')"></td>
+          <td>⑫ 販売促進強化ファアー<br><small>・企画確定→チラシ→折込→備品→当日→フォロー</small></td>
+          <td>11/21〜23（案）</td>
+          <td><span class="who who-all">全理事</span></td>
+          <td class="dl">9月中旬に企画確定</td><td><span class="pri pri-high">高</span></td>
+        </tr>
+        <tr class="task-row" data-event="ev-later" data-who="田中建築" data-dl="2026-12-12" data-id="t10-5">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t10-5')"></td>
+          <td>⑬ クリスマスイベント<br><small>・企画確定→チラシ→折込→備品→当日→フォロー</small></td>
+          <td>12/12（案）田中建築</td>
+          <td><span class="who who-tanaka">田中建築</span></td>
+          <td class="dl">10月上旬に企画確定</td><td><span class="pri pri-high">高</span></td>
+        </tr>
+        <tr class="task-row" data-event="ev-later" data-who="全員" data-dl="2027-01-16" data-id="t10-6">
+          <td><input type="checkbox" class="task-check" onchange="onCheck(this,'t10-6')"></td>
+          <td>⑭ ファイナルイベント<br><small>・企画確定→チラシ→折込→備品→当日→フォロー</small></td>
+          <td>1/16〜17</td>
+          <td><span class="who who-all">全員</span></td>
+          <td class="dl">11月中旬に企画確定</td><td><span class="pri pri-critical">緊急</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- KPI更新フォーム -->
+<div class="event-card" style="margin-top:20px">
+  <div class="event-header" onclick="toggleCard(this)" style="background:#f5f5f5">
+    <div class="event-num" style="background:#546e7a;font-size:11px">KPI</div>
+    <div class="event-title-wrap">
+      <div class="event-title">📊 KPI数値を更新する</div>
+      <div class="event-date">来場者数・受注数・MH販売を手動更新してダッシュボードに反映</div>
+    </div>
+    <div class="event-toggle">▼</div>
+  </div>
+  <div class="event-body">
+    <div style="display:flex;gap:16px;flex-wrap:wrap;padding:8px 0">
+      <div>
+        <label style="font-size:12px;color:#666">来場者数（組）</label><br>
+        <input type="number" id="inp-visitors" value="320" style="width:100px;padding:4px;border:1px solid #ccc;border-radius:4px;font-size:16px">
+      </div>
+      <div>
+        <label style="font-size:12px;color:#666">新築受注（棟）</label><br>
+        <input type="number" id="inp-orders" value="15" style="width:100px;padding:4px;border:1px solid #ccc;border-radius:4px;font-size:16px">
+      </div>
+      <div>
+        <label style="font-size:12px;color:#666">MH販売（棟）</label><br>
+        <input type="number" id="inp-mh" value="1" style="width:80px;padding:4px;border:1px solid #ccc;border-radius:4px;font-size:16px">
+      </div>
+      <div style="display:flex;align-items:flex-end">
+        <button onclick="updateKPI()" style="padding:6px 16px;background:#1a237e;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px">更新</button>
+      </div>
+    </div>
+    <p style="font-size:11px;color:#888;margin-top:4px">※ KPI数値はこのブラウザにのみ保存されます。</p>
+  </div>
+</div>
+
+</div><!-- /main -->
+
+<script>
+// ===== TODAY =====
+const TODAY = new Date('2026-05-15');
+document.getElementById('today-label').textContent = '本日：' + TODAY.toLocaleDateString('ja-JP');
+
+// ===== DAYS LEFT =====
+(function(){
+  const end = new Date('2027-01-16');
+  const start = new Date('2026-01-17');
+  const total = (end - start) / 86400000;
+  const left = Math.max(0, Math.ceil((end - TODAY) / 86400000));
+  const pct = Math.round((1 - left/total)*100);
+  document.getElementById('days-left').textContent = left + '日';
+  document.getElementById('days-bar').style.width = pct + '%';
+})();
+
+// ===== KPI from localStorage =====
+function loadKPI(){
+  const v = localStorage.getItem('kpi_visitors') || '320';
+  const o = localStorage.getItem('kpi_orders') || '15';
+  const m = localStorage.getItem('kpi_mh') || '1';
+  document.getElementById('inp-visitors').value = v;
+  document.getElementById('inp-orders').value = o;
+  document.getElementById('inp-mh').value = m;
+}
+function updateKPI(){
+  const v = +document.getElementById('inp-visitors').value;
+  const o = +document.getElementById('inp-orders').value;
+  const m = +document.getElementById('inp-mh').value;
+  localStorage.setItem('kpi_visitors', v);
+  localStorage.setItem('kpi_orders', o);
+  localStorage.setItem('kpi_mh', m);
+  location.reload();
+}
+loadKPI();
+
+// ===== DEADLINE CLASS =====
+function dlClass(dlStr){
+  if(!dlStr || dlStr.indexOf('-') < 0) return 'dl-ok';
+  const d = new Date(dlStr);
+  const diff = (d - TODAY) / 86400000;
+  if(diff < 0) return 'dl-overdue';
+  if(diff <= 1) return 'dl-today';
+  if(diff <= 7) return 'dl-soon';
+  return 'dl-ok';
+}
+
+// ===== GOOGLE APPS SCRIPT SYNC =====
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzpplQzWYff6iK0D2sybyPiIBgO26opF1wNOfjv27NRUzEwW0JRrimFjbxAVvlonVg7/exec';
+
+function setSyncStatus(msg){
+  const el = document.getElementById('sync-status');
+  if(el) el.textContent = msg;
+}
+
+// 10秒でタイムアウトする fetch ラッパー（GAS応答待ちで「同期中」のまま固まる問題を防ぐ）
+async function gasFetch(url, ms=10000){
+  const ctrl = new AbortController();
+  const timer = setTimeout(()=>ctrl.abort(), ms);
+  try {
+    const r = await fetch(url, {signal: ctrl.signal});
+    clearTimeout(timer);
+    return r;
+  } catch(e){
+    clearTimeout(timer);
+    throw e;
+  }
+}
+
+async function restoreChecks(){
+  setSyncStatus('同期中…');
+  try {
+    const res = await gasFetch(GAS_URL);
+    const data = await res.json();
+    document.querySelectorAll('.task-check').forEach(cb=>{
+      const id = cb.closest('tr').dataset.id;
+      const checked = data[id] === true;
+      cb.checked = checked;
+      cb.closest('tr').classList.toggle('done', checked);
+    });
+    setSyncStatus('✓ 同期済 ' + new Date().toLocaleTimeString('ja-JP'));
+  } catch(e){
+    setSyncStatus('⚠ オフライン（未同期）');
+  }
+  updateProgBars();
+  buildAlerts();
+}
+
+async function onCheck(cb, id){
+  const row = cb.closest('tr');
+  const done = cb.checked;
+  row.classList.toggle('done', done);
+  updateProgBars();
+  buildAlerts();
+  setSyncStatus('保存中…');
+  try {
+    await gasFetch(GAS_URL + '?action=set&id=' + encodeURIComponent(id) + '&done=' + done);
+    setSyncStatus('✓ 保存済 ' + new Date().toLocaleTimeString('ja-JP'));
+  } catch(e){
+    setSyncStatus('⚠ 保存失敗（再読込で再試行）');
+  }
+}
+
+// 60秒ごとに全員の状態を自動取得
+setInterval(restoreChecks, 60000);
+
+// ===== COLOR DEADLINES =====
+function colorDeadlines(){
+  document.querySelectorAll('.task-row').forEach(row=>{
+    const dl = row.dataset.dl;
+    const tdDl = row.querySelector('.dl');
+    if(tdDl && dl){
+      const cls = dlClass(dl);
+      tdDl.classList.add(cls);
+      if(!row.classList.contains('done')){
+        if(cls==='dl-overdue') row.classList.add('overdue');
+        else if(cls==='dl-today') row.classList.add('today');
+        else if(cls==='dl-soon') row.classList.add('soon');
+      }
+    }
+  });
+}
+
+// ===== PROGRESS BARS =====
+function updateProgBars(){
+  const events = ['ev02','ev03','ev04','ev05','ev06','ev07','ev09'];
+  events.forEach(ev=>{
+    const rows = document.querySelectorAll(`.task-row[data-event="${ev}"]`);
+    if(!rows.length) return;
+    const done = [...rows].filter(r=>r.querySelector('.task-check').checked).length;
+    const pct = Math.round(done/rows.length*100);
+    const bar = document.getElementById('prog-ev'+ev.replace('ev',''));
+    const txt = document.getElementById('prog-text-ev'+ev.replace('ev',''));
+    if(bar) bar.style.width = pct+'%';
+    if(txt) txt.textContent = pct+'%';
+  });
+}
+
+// ===== BUILD ALERTS =====
+function buildAlerts(){
+  const overList = document.getElementById('alert-overdue-list');
+  const todayList = document.getElementById('alert-today-list');
+  overList.innerHTML = '';
+  todayList.innerHTML = '';
+  let overCount=0, todayCount=0;
+
+  document.querySelectorAll('.task-row').forEach(row=>{
+    if(row.querySelector('.task-check').checked) return;
+    const dl = row.dataset.dl;
+    if(!dl || dl.indexOf('-')<0) return;
+    const d = new Date(dl);
+    const diff = (d - TODAY)/86400000;
+    const name = row.cells[1].textContent.trim();
+    const who = row.querySelector('.who')?.textContent || '';
+    const evCard = row.closest('.event-card');
+    const evName = evCard?.querySelector('.event-title')?.textContent || '';
+
+    if(diff < 0){
+      overList.innerHTML += `<div class="alert-item"><span>🔴</span><strong>${evName}</strong>｜${name}（${who}）<span>期限：${dl.replace('2026-','').replace(/-/g,'/')}</span></div>`;
+      overCount++;
+    } else if(diff <= 2){
+      todayList.innerHTML += `<div class="alert-item"><span>🟠</span><strong>${evName}</strong>｜${name}（${who}）<span>期限：${dl.replace('2026-','').replace(/-/g,'/')}</span></div>`;
+      todayCount++;
+    }
+  });
+
+  document.getElementById('alert-overdue-box').style.display = overCount>0 ? 'block' : 'none';
+  document.getElementById('alert-today-box').style.display = todayCount>0 ? 'block' : 'none';
+}
+
+// ===== ACCORDION =====
+function toggleCard(header){
+  const body = header.nextElementSibling?.classList.contains('deadline-banner')
+    ? header.nextElementSibling.nextElementSibling
+    : header.nextElementSibling;
+  if(!body) return;
+  const toggle = header.querySelector('.event-toggle');
+  body.classList.toggle('open');
+  if(toggle) toggle.classList.toggle('open');
+}
+
+// Auto-open urgent cards
+window.addEventListener('DOMContentLoaded',()=>{
+  document.querySelectorAll('.event-card').forEach(card=>{
+    const badge = card.querySelector('.ev-urgent');
+    if(badge) card.querySelector('.event-header').click();
+  });
+});
+
+// ===== FILTERS =====
+let activeFilters = {event:'all', who:'all', status:'all'};
+
+function setFilter(type, val, btn){
+  activeFilters[type] = val;
+  // update button states
+  btn.closest('#filterbar').querySelectorAll('.filter-btn').forEach(b=>{
+    if(b.onclick && b.onclick.toString().includes(`'${type}'`)) b.classList.remove('active');
+  });
+  btn.classList.add('active');
+  applyFilters();
+}
+
+function applyFilters(){
+  const {event, who, status} = activeFilters;
+  // event cards
+  document.querySelectorAll('.event-card').forEach(card=>{
+    if(event!=='all' && card.dataset.event !== event){
+      card.style.display='none';
+    } else {
+      card.style.display='';
+    }
+  });
+  // task rows
+  document.querySelectorAll('.task-row').forEach(row=>{
+    let show = true;
+    if(event!=='all' && row.dataset.event !== event) show=false;
+    if(who!=='all' && !(row.dataset.who||'').includes(who)) show=false;
+    if(status==='undone' && row.querySelector('.task-check').checked) show=false;
+    if(status==='overdue' && !row.classList.contains('overdue')) show=false;
+    row.classList.toggle('hidden', !show);
+  });
+}
+
+// ===== 来場者数・月別グラフ（Apps Script連動）=====
+// データソース：Googleスプレッドシート「アンケート集計」シート
+// ロジック：A列（日付）が空でない行を1組としてカウント＋月別集計
+// Apps Script URL: GAS_URL?action=visitors → {count, monthly:{1:N, 2:N, ...}}
+//
+// フォールバック値（Apps Script再デプロイ前・オフライン時に使用）
+// 実績確認済み 2026/5/16時点。再デプロイ後は自動的にスプレッドシートの値が優先。
+const FALLBACK = {
+  count: 321,
+  monthly: {1:148, 2:96, 3:53, 4:16, 5:8}
+};
+
+async function loadVisitors(){
+  let data = FALLBACK; // まずフォールバックで描画
+  try {
+    const res = await gasFetch(GAS_URL + '?action=visitors');
+    const json = await res.json();
+    // GASが正しく月別データを返している場合のみ採用
+    if (json && json.count > 0 && json.monthly && Object.keys(json.monthly).length > 0) {
+      data = json;
+    }
+  } catch(e){
+    // 取得失敗時はフォールバック値をそのまま使用
+    console.warn('GAS取得失敗、フォールバック値を使用');
+  }
+    const count = data.count || 0;
+    const monthly = data.monthly || {};
+
+    // --- KPI ヘッダー更新 ---
+    const goal = 600;
+    const pct = Math.round(count / goal * 100);
+    const remain = goal - count;
+    document.getElementById('kpi-vis-val').innerHTML =
+      count + '組 <span style="font-size:14px;opacity:.7">/ ' + goal + '組</span>';
+    document.getElementById('kpi-vis-bar').style.width = pct + '%';
+    document.getElementById('kpi-vis-warn').textContent =
+      (pct < 70 ? '⚠' : '✓') + ' 達成率 ' + pct + '%｜残り' + remain + '組必要';
+    const lbl = document.getElementById('kpi-vis-label');
+    if(lbl) lbl.textContent = '🔍 来場きっかけ（' + count + '組）';
+    // モバイルKPI更新
+    const mVis = document.getElementById('m-vis-val');
+    if(mVis) mVis.textContent = count;
+
+    // --- 月別棒グラフ更新 ---
+    const GOAL_PER_MONTH = 50;
+    // 1月(1)〜現在の最終月まで表示（最低5月まで）
+    const months = [1,2,3,4,5,6,7,8,9,10,11,12].filter(m => monthly[m] !== undefined || m <= 5);
+    const maxVal = Math.max(...months.map(m => monthly[m]||0), GOAL_PER_MONTH);
+
+    const chart = document.getElementById('monthly-chart');
+    chart.innerHTML = months.map(m => {
+      const val = monthly[m] || 0;
+      const h = Math.round((val / maxVal) * 100);
+      const color = val >= GOAL_PER_MONTH ? '#1565c0' : val >= 30 ? '#f57f17' : '#c62828';
+      const label = m + '月';
+      return `<div style="display:flex;flex-direction:column;align-items:center;flex:1">
+        <span style="font-size:11px;font-weight:bold;color:${color}">${val}</span>
+        <div style="width:100%;background:${color};border-radius:4px 4px 0 0;height:${Math.max(h,2)}px;position:relative">
+          <div style="position:absolute;bottom:-18px;font-size:10px;width:100%;text-align:center;color:#666">${label}</div>
+        </div>
+      </div>`;
+    }).join('');
+
+    // --- 警告メッセージ ---
+    const recentMonths = months.slice(-2).map(m => monthly[m]||0);
+    const msgEl = document.getElementById('monthly-chart-msg');
+    if(recentMonths.every(v => v < GOAL_PER_MONTH)){
+      msgEl.textContent = '⚠ 直近月が目標（50組/月）を下回っています。連続イベントで巻き返しが必須。';
+      msgEl.style.display = 'block';
+    } else {
+      msgEl.style.display = 'none';
+    }
+}
+
+// ===== モバイル：マイタスクセレクター =====
+const MOBILE_ASSIGNEES = [
+  {label:'全員', key:'all'},
+  {label:'土屋建設', key:'土屋建設'},
+  {label:'田中建築', key:'田中建築'},
+  {label:'冨岡建設', key:'冨岡建設'},
+  {label:'村山建設', key:'村山建設'},
+  {label:'矢嶋建築', key:'矢嶋建築'},
+  {label:'須坂土建工業', key:'須坂土建工業'},
+  {label:'阿部', key:'阿部'},
+  {label:'西埜', key:'西埜'},
+];
+
+function initMobileWho(){
+  const container = document.getElementById('mobile-who-btns');
+  if(!container) return;
+  // onclick属性に頼らず、コンテナへのイベント委譲で処理（最も確実）
+  container.addEventListener('click', function(e){
+    const btn = e.target.closest('.mobile-who-btn');
+    if(!btn) return;
+    const key = btn.dataset.key || 'all';
+    selectMobileWho(key, btn);
+  });
+}
+
+function selectMobileWho(key, btn){
+  try {
+  document.querySelectorAll('.mobile-who-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+
+  const listEl = document.getElementById('mobile-task-list');
+  const summary = document.getElementById('mobile-task-summary');
+  if(!listEl){ return; }
+
+  if(key === 'all'){
+    listEl.style.display = 'none';
+    listEl.innerHTML = '';
+    summary.style.display = 'none';
+    return;
+  }
+
+  // 該当タスク行を収集
+  const rows = [...document.querySelectorAll('.task-row')]
+    .filter(r => (r.dataset.who||'').includes(key));
+
+  // サマリー件数
+  const doneRows = rows.filter(r => r.querySelector('.task-check')?.checked);
+  document.getElementById('m-undone-count').textContent = rows.length - doneRows.length;
+  document.getElementById('m-done-count').textContent = doneRows.length;
+  summary.style.display = 'block';
+
+  if(rows.length === 0){
+    listEl.innerHTML = '<div style="padding:12px;color:#999;text-align:center;font-size:13px">担当タスクはありません</div>';
+    listEl.style.display = 'block';
+    return;
+  }
+
+  // イベント名マッピング
+  const evNames = {};
+  document.querySelectorAll('.event-card').forEach(card=>{
+    const id = card.dataset.event;
+    const title = card.querySelector('.event-title')?.textContent||'';
+    if(id) evNames[id] = title;
+  });
+
+  // タスク一覧をその場に生成
+  // タスク一覧をその場に生成
+  const dlColors = {'dl-overdue':'#c62828','dl-today':'#e65100','dl-soon':'#f57f17','dl-ok':'#555'};
+  listEl.innerHTML = '<div style="font-size:11px;color:#888;padding:4px 0 8px;border-bottom:2px solid #e8eaf6;margin-bottom:4px">▼ 担当タスク一覧</div>'
+    + rows.map(row=>{
+    const id = row.dataset.id;
+    const evId = row.dataset.event;
+    const evName = evNames[evId]||evId;
+    const dl = row.dataset.dl||'';
+    const checked = row.querySelector('.task-check')?.checked||false;
+    const tds = row.querySelectorAll('td');
+    const taskName = (tds[1]?tds[1].textContent:'').trim();
+    const cls = dl ? dlClass(dl) : 'dl-ok';
+    const dlLabel = dl ? dl.replace('2026-','') : '未定';
+    const dlColor = dlColors[cls]||'#555';
+    return `<div style="border-bottom:1px solid #f0f0f0;padding:10px 0;display:flex;align-items:flex-start;gap:10px;opacity:${checked?'0.45':'1'}">
+      <input type="checkbox" style="width:24px;height:24px;margin-top:2px;accent-color:#1a237e;flex-shrink:0;cursor:pointer" ${checked?'checked':''} onchange="onMobileTaskCheck(this,'${id}')">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:500;line-height:1.4;${checked?'text-decoration:line-through;color:#aaa':''}">${taskName}</div>
+        <div style="font-size:11px;margin-top:3px"><span style="color:#888">${evName}</span>｜<span style="font-weight:bold;color:${dlColor}">期限 ${dlLabel}</span></div>
+      </div>
+    </div>`;
+  }).join('');
+  listEl.style.display = 'block';
+  // 生成したリストまでスクロール
+  setTimeout(()=>listEl.scrollIntoView({behavior:'smooth',block:'start'}), 80);
+  } catch(err) {
+    // エラーを画面表示（デバッグ用）
+    var dbg = document.getElementById('mobile-task-list');
+    if(dbg){ dbg.style.display='block'; dbg.innerHTML='<div style="color:red;font-size:12px;padding:8px">エラー: '+err.message+'</div>'; }
+  }
+}
+
+// モバイルタスクリスト内チェックボックス → 本体行と同期
+function onMobileTaskCheck(cb, id){
+  const done = cb.checked;
+  // 本体の task-row も同期
+  const origCb = document.querySelector(`.task-row[data-id="${id}"] .task-check`);
+  if(origCb){ origCb.checked = done; origCb.closest('tr').classList.toggle('done', done); }
+  // 表示スタイル更新
+  const item = cb.closest('div[style]');
+  if(item) item.style.opacity = done ? '0.45' : '1';
+  const nameDiv = cb.nextElementSibling?.querySelector('div:first-child');
+  if(nameDiv){ nameDiv.style.textDecoration = done ? 'line-through' : ''; nameDiv.style.color = done ? '#999' : ''; }
+  // サマリー更新
+  const allCbs = document.querySelectorAll('#mobile-task-list input[type=checkbox]');
+  const doneCount = [...allCbs].filter(c=>c.checked).length;
+  document.getElementById('m-undone-count').textContent = allCbs.length - doneCount;
+  document.getElementById('m-done-count').textContent = doneCount;
+  updateProgBars();
+  buildAlerts();
+  // GAS保存
+  setSyncStatus('保存中…');
+  gasFetch(GAS_URL+'?action=set&id='+encodeURIComponent(id)+'&done='+done)
+    .then(()=>setSyncStatus('✓ 保存済 '+new Date().toLocaleTimeString('ja-JP')))
+    .catch(()=>setSyncStatus('⚠ 保存失敗'));
+}
+
+// ===== EDIT MODE =====
+let _editMode = false, _curTaskId = null, _curEventId = null, _editingNew = false;
+
+function toggleEditMode(){
+  _editMode = !_editMode;
+  document.body.classList.toggle('edit-mode', _editMode);
+  const fab = document.getElementById('fab-edit');
+  fab.textContent = _editMode ? '✕' : '✏️';
+  fab.classList.toggle('active', _editMode);
+  if(_editMode) initEditControls();
+}
+
+function initEditControls(){
+  // 各タスク行に編集・削除ボタン追加
+  document.querySelectorAll('.task-table thead tr').forEach(tr=>{
+    if(tr.querySelector('.edit-ctrl-th')) return;
+    const th = document.createElement('th');
+    th.className = 'edit-ctrl-th';
+    tr.appendChild(th);
+  });
+  document.querySelectorAll('.task-row').forEach(row=>{
+    if(row.querySelector('.edit-ctrl')) return;
+    const id = row.dataset.id;
+    const td = document.createElement('td');
+    td.className = 'edit-ctrl';
+    td.innerHTML = `<button class="btn-edit-task" onclick="openTaskModal(null,'${id}')">✏️</button>
+                    <button class="btn-del-task" onclick="confirmDeleteTask('${id}')">🗑</button>`;
+    row.appendChild(td);
+  });
+  // 各イベントカードに「タスク追加」ボタン追加
+  document.querySelectorAll('.event-body').forEach(body=>{
+    if(body.querySelector('.btn-add-task')) return;
+    const evId = body.closest('.event-card').dataset.event;
+    const btn = document.createElement('button');
+    btn.className = 'btn-add-task';
+    btn.textContent = '＋ このイベントにタスクを追加';
+    btn.onclick = () => openTaskModal(evId, null);
+    body.appendChild(btn);
+  });
+  // 各イベントヘッダーに「イベント編集」ボタン追加
+  document.querySelectorAll('.event-header').forEach(header=>{
+    if(header.querySelector('.btn-edit-event')) return;
+    const evId = header.closest('.event-card').dataset.event;
+    const btn = document.createElement('button');
+    btn.className = 'btn-edit-event';
+    btn.textContent = '⚙ 編集';
+    btn.onclick = (e)=>{ e.stopPropagation(); openEventModal(evId); };
+    header.appendChild(btn);
+  });
+}
+
+// ===== タスクモーダル =====
+function openTaskModal(eventId, taskId){
+  _curTaskId = taskId;
+  _curEventId = eventId;
+  _editingNew = !taskId;
+  document.getElementById('task-modal-title').textContent = taskId ? 'タスク編集' : 'タスク追加';
+  document.getElementById('btn-del-task-modal').style.display = taskId ? 'inline-block' : 'none';
+  if(taskId){
+    const row = document.querySelector(`.task-row[data-id="${taskId}"]`);
+    if(row){
+      document.getElementById('f-task-name').value = row.cells[1].textContent.trim();
+      document.getElementById('f-assignee').value = (row.cells[2].querySelector('.who')||{}).textContent||'';
+      document.getElementById('f-deadline').value = row.dataset.dl||'';
+      document.getElementById('f-priority').value = (row.cells[4].querySelector('.pri')||{}).textContent||'中';
+      document.getElementById('f-memo').value = row.cells[5].textContent.trim();
+    }
+  } else {
+    document.getElementById('f-task-name').value='';
+    document.getElementById('f-assignee').value='';
+    document.getElementById('f-deadline').value='';
+    document.getElementById('f-priority').value='中';
+    document.getElementById('f-memo').value='';
+  }
+  document.getElementById('task-modal').classList.add('open');
+  setTimeout(()=>document.getElementById('f-task-name').focus(),100);
+}
+
+async function saveTask(){
+  const taskName = document.getElementById('f-task-name').value.trim();
+  if(!taskName){ alert('タスク名を入力してください'); return; }
+  const id = _curTaskId || ('c-'+Date.now());
+  const evId = _curEventId || document.querySelector(`.task-row[data-id="${_curTaskId}"]`)?.dataset.event||'';
+  const assignee = document.getElementById('f-assignee').value.trim();
+  const deadline = document.getElementById('f-deadline').value;
+  const priority = document.getElementById('f-priority').value;
+  const memo = document.getElementById('f-memo').value.trim();
+  const params = new URLSearchParams({action:'save_task',id,event_id:evId,task_name:taskName,assignee,deadline,priority,memo,deleted:'false'});
+  try{ await gasFetch(GAS_URL+'?'+params); }catch(e){ console.warn('GAS保存失敗'); }
+  applyTaskOverride({id,event_id:evId,task_name:taskName,assignee,deadline,priority,memo,deleted:false});
+  if(_editingNew) setTimeout(initEditControls,150);
+  closeModal('task-modal');
+  updateProgBars(); buildAlerts(); colorDeadlines();
+}
+
+function confirmDeleteTask(id){
+  if(confirm('このタスクを削除しますか？')) deleteTask(id);
+}
+function deleteTaskFromModal(){
+  if(_curTaskId && confirm('このタスクを削除しますか？')){ deleteTask(_curTaskId); closeModal('task-modal'); }
+}
+async function deleteTask(id){
+  const params = new URLSearchParams({action:'save_task',id,deleted:'true'});
+  try{ await gasFetch(GAS_URL+'?'+params); }catch(e){}
+  const row = document.querySelector(`.task-row[data-id="${id}"]`);
+  if(row) row.remove();
+  updateProgBars(); buildAlerts();
+}
+
+// ===== イベントモーダル =====
+function openEventModal(eventId){
+  _curEventId = eventId;
+  _editingNew = !eventId;
+  document.getElementById('event-modal-title').textContent = eventId ? 'イベント編集' : 'イベント追加';
+  document.getElementById('btn-del-event-modal').style.display = eventId ? 'inline-block' : 'none';
+  if(eventId){
+    const card = document.querySelector(`.event-card[data-event="${eventId}"]`);
+    document.getElementById('f-event-name').value = card?.querySelector('.event-title')?.textContent||'';
+    document.getElementById('f-event-date').value = card?.querySelector('.event-date')?.textContent||'';
+  } else {
+    document.getElementById('f-event-name').value='';
+    document.getElementById('f-event-date').value='';
+  }
+  document.getElementById('event-modal').classList.add('open');
+  setTimeout(()=>document.getElementById('f-event-name').focus(),100);
+}
+
+async function saveEvent(){
+  const evName = document.getElementById('f-event-name').value.trim();
+  if(!evName){ alert('イベント名を入力してください'); return; }
+  const id = _curEventId || ('ev-c-'+Date.now());
+  const evDate = document.getElementById('f-event-date').value.trim();
+  const params = new URLSearchParams({action:'save_event',id,event_name:evName,event_date:evDate,deleted:'false'});
+  try{ await gasFetch(GAS_URL+'?'+params); }catch(e){}
+  applyEventOverride({id,event_name:evName,event_date:evDate,deleted:false});
+  if(_editingNew) setTimeout(initEditControls,150);
+  closeModal('event-modal');
+}
+
+function deleteEventFromModal(){
+  if(_curEventId && confirm('このイベントとタスクをすべて削除しますか？')){ deleteEvent(_curEventId); closeModal('event-modal'); }
+}
+async function deleteEvent(id){
+  const params = new URLSearchParams({action:'save_event',id,deleted:'true'});
+  try{ await gasFetch(GAS_URL+'?'+params); }catch(e){}
+  document.querySelector(`.event-card[data-event="${id}"]`)?.remove();
+}
+
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+
+// ===== GASオーバーライドの読み込み・適用 =====
+async function loadOverrides(){
+  try{
+    const res = await gasFetch(GAS_URL+'?action=get_overrides');
+    const data = await res.json();
+    (data.tasks||[]).forEach(applyTaskOverride);
+    (data.events||[]).forEach(applyEventOverride);
+    updateProgBars(); buildAlerts(); colorDeadlines();
+    if(_editMode) setTimeout(initEditControls,100);
+  }catch(e){ console.warn('overrides取得失敗',e); }
+}
+
+function applyTaskOverride(o){
+  if(o.deleted===true||o.deleted==='true'){
+    document.querySelector(`.task-row[data-id="${o.id}"]`)?.remove(); return;
+  }
+  let row = document.querySelector(`.task-row[data-id="${o.id}"]`);
+  if(!row && o.event_id){
+    const card = document.querySelector(`.event-card[data-event="${o.event_id}"]`);
+    if(!card) return;
+    let tbody = card.querySelector('tbody');
+    if(!tbody){
+      const tbl = document.createElement('table'); tbl.className='task-table';
+      tbl.innerHTML='<thead><tr><th></th><th>タスク</th><th>担当</th><th>期限</th><th>優先度</th><th>メモ</th></tr></thead><tbody></tbody>';
+      card.querySelector('.event-body').appendChild(tbl); tbody=tbl.querySelector('tbody');
+    }
+    row = document.createElement('tr');
+    row.className='task-row'; row.dataset.id=o.id; row.dataset.event=o.event_id;
+    row.dataset.who=o.assignee||''; row.dataset.dl=o.deadline||'';
+    tbody.appendChild(row);
+    row.innerHTML=`<td><input type="checkbox" class="task-check" onchange="onCheck(this,'${o.id}')"></td>
+      <td>${o.task_name||''}</td>
+      <td><span class="who ${_whoClass(o.assignee)}">${o.assignee||''}</span></td>
+      <td class="dl">${_fmtDl(o.deadline)}</td>
+      <td>${_priBadge(o.priority)}</td>
+      <td class="note">${o.memo||''}</td>`;
+    return;
+  }
+  if(row){
+    if(o.task_name) row.cells[1].textContent=o.task_name;
+    if(o.assignee!==undefined){ row.cells[2].innerHTML=`<span class="who ${_whoClass(o.assignee)}">${o.assignee}</span>`; row.dataset.who=o.assignee; }
+    if(o.deadline!==undefined){ row.cells[3].textContent=_fmtDl(o.deadline); row.cells[3].className='dl'; row.dataset.dl=o.deadline; }
+    if(o.priority) row.cells[4].innerHTML=_priBadge(o.priority);
+    if(o.memo!==undefined) row.cells[5].textContent=o.memo;
+  }
+}
+
+function applyEventOverride(o){
+  if(o.deleted===true||o.deleted==='true'){
+    document.querySelector(`.event-card[data-event="${o.id}"]`)?.remove(); return;
+  }
+  let card = document.querySelector(`.event-card[data-event="${o.id}"]`);
+  if(!card){
+    card = document.createElement('div');
+    card.className='event-card'; card.dataset.event=o.id;
+    const pid='prog-'+o.id.replace(/[^a-zA-Z0-9]/g,'-');
+    card.innerHTML=`<div class="event-header" onclick="toggleCard(this)">
+      <div class="event-num" style="background:#546e7a">＋</div>
+      <div class="event-title-wrap">
+        <div class="event-title">${o.event_name||'新しいイベント'}</div>
+        <div class="event-date">${o.event_date||''}</div>
+      </div>
+      <div class="event-progress-bar">
+        <div class="event-progress-text" id="prog-text-${pid}">0%</div>
+        <div class="prog-bg"><div class="prog-fill" id="prog-${pid}" style="width:0%"></div></div>
+      </div>
+      <div class="event-toggle">▼</div></div>
+    <div class="event-body">
+      <table class="task-table">
+        <thead><tr><th></th><th>タスク</th><th>担当</th><th>期限</th><th>優先度</th><th>メモ</th></tr></thead>
+        <tbody></tbody></table></div>`;
+    const last = document.querySelector('#main .event-card:last-child');
+    document.getElementById('main').insertBefore(card, last||null);
+    return;
+  }
+  if(o.event_name){ const t=card.querySelector('.event-title'); if(t) t.textContent=o.event_name; }
+  if(o.event_date){ const d=card.querySelector('.event-date'); if(d) d.textContent=o.event_date; }
+}
+
+// ===== ヘルパー =====
+function _whoClass(name){
+  const m={'土屋建設':'who-tsuchiya','田中建築':'who-tanaka','冨岡建設':'who-tomioka',
+    '村山建設':'who-center','矢嶋建築':'who-yajima','須坂土建工業':'who-shinozuka',
+    '阿部':'who-abe','西埜':'who-nishino','全員':'who-all',
+    '各営業':'who-sales','センタースタッフ':'who-center','全理事':'who-all'};
+  return m[name]||'who-center';
+}
+function _priBadge(p){
+  const m={'緊急':'pri-critical','高':'pri-high','中':'pri-mid','低':'pri-low'};
+  return `<span class="pri ${m[p]||'pri-mid'}">${p||'中'}</span>`;
+}
+function _fmtDl(dl){
+  if(!dl) return '';
+  const m=String(dl).match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+  return m ? parseInt(m[2])+'/'+parseInt(m[3]) : dl;
+}
+
+// ===== INIT =====
+restoreChecks();
+loadVisitors();
+loadOverrides();
+colorDeadlines();
+updateProgBars();
+buildAlerts();
+initMobileWho();
+
+// 担当者ボタン：window.onload で再バインド（最終保険）
+window.addEventListener('load', function(){
+  document.querySelectorAll('.mobile-who-btn').forEach(function(btn){
+    btn.addEventListener('click', function(e){
+      e.preventDefault();
+      var key = btn.dataset.key || 'all';
+      selectMobileWho(key, btn);
+    });
+  });
+});
+</script>
+<!-- ===== 編集モード FAB ===== -->
+<button class="fab-edit" id="fab-edit" onclick="toggleEditMode()" title="編集モード切替">✏️</button>
+
+<!-- ===== タスク追加・編集モーダル ===== -->
+<div class="modal-overlay" id="task-modal">
+  <div class="modal-box">
+    <div class="modal-title" id="task-modal-title">タスク追加</div>
+    <div class="form-grid">
+      <div class="form-row"><label>タスク名</label><input id="f-task-name" type="text" placeholder="タスク名を入力"></div>
+      <div class="form-row"><label>担当者</label>
+        <input id="f-assignee" type="text" list="assignee-datalist" placeholder="会社名または担当者名">
+        <datalist id="assignee-datalist">
+          <option value="土屋建設"><option value="田中建築"><option value="冨岡建設">
+          <option value="村山建設"><option value="矢嶋建築"><option value="須坂土建工業">
+          <option value="阿部"><option value="西埜"><option value="全員">
+          <option value="各営業"><option value="センタースタッフ"><option value="全理事">
+        </datalist>
+      </div>
+      <div class="form-row"><label>期限</label><input id="f-deadline" type="date"></div>
+      <div class="form-row"><label>優先度</label>
+        <select id="f-priority">
+          <option value="緊急">🚨 緊急</option>
+          <option value="高">高</option>
+          <option value="中" selected>中</option>
+          <option value="低">低</option>
+        </select>
+      </div>
+      <div class="form-row"><label>メモ</label><input id="f-memo" type="text" placeholder="備考・注記"></div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-modal-cancel" onclick="closeModal('task-modal')">キャンセル</button>
+      <button id="btn-del-task-modal" class="btn-modal-danger" onclick="deleteTaskFromModal()" style="display:none">🗑 削除</button>
+      <button class="btn-modal-save" onclick="saveTask()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== イベント追加・編集モーダル ===== -->
+<div class="modal-overlay" id="event-modal">
+  <div class="modal-box">
+    <div class="modal-title" id="event-modal-title">イベント追加</div>
+    <div class="form-grid">
+      <div class="form-row"><label>イベント名</label><input id="f-event-name" type="text" placeholder="イベント名を入力"></div>
+      <div class="form-row"><label>開催日</label><input id="f-event-date" type="text" placeholder="例：2026/9/19（土）〜20（日）"></div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-modal-cancel" onclick="closeModal('event-modal')">キャンセル</button>
+      <button id="btn-del-event-modal" class="btn-modal-danger" onclick="deleteEventFromModal()" style="display:none">🗑 削除</button>
+      <button class="btn-modal-save" onclick="saveEvent()">保存</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>
